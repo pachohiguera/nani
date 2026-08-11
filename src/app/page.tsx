@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { hoursAgoIso } from "@/lib/time";
 import { LogoutButton } from "@/components/logout-button";
@@ -71,7 +72,12 @@ export default async function Home() {
           </p>
           <h1 className="text-2xl font-bold">Hola, {caregiver.nombre_display}</h1>
         </div>
-        <LogoutButton />
+        <div className="flex items-center gap-3">
+          <Link href="/tendencias" className="text-sm font-medium text-zinc-400">
+            Tendencias
+          </Link>
+          <LogoutButton />
+        </div>
       </header>
 
       <main className="flex-1 px-4 pb-10">
