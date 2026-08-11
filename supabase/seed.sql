@@ -5,7 +5,7 @@
 
 -- 1) Bebé -------------------------------------------------------------------
 insert into public.babies (nombre, fecha_nacimiento)
-values ('Nombre del bebé', '2026-01-01')
+values ('Macarena', '2026-08-05')
 returning id; -- copia este id, lo necesitas para los pasos 2 y 3
 
 -- 2) Categorías de eventos ----------------------------------------------
@@ -26,5 +26,5 @@ values
 -- Luego vincúlalos al baby_id de arriba:
 insert into public.caregivers (user_id, baby_id, nombre_display)
 values
-  ((select id from auth.users where email = 'papa@example.com'),  '<BABY_ID>', 'Papá'),
-  ((select id from auth.users where email = 'mama@example.com'),  '<BABY_ID>', 'Mamá');
+  ((select id from auth.users where email = 'francisco.higueral20@gmail.com'),  '<BABY_ID>', 'Papá'),
+  ((select id from auth.users where email = 'saranietod@gmail.com'),  '<BABY_ID>', 'Mamá');
