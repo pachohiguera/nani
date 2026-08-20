@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { recordCategoryEvent } from "@/lib/events/actions";
 import { enrichEvent } from "@/lib/events/enrich";
 import { matchVoiceCommand } from "@/lib/voice/commands";
@@ -25,7 +24,6 @@ export function useEventLog({
   initialEvents,
   caregiverNamesById,
 }: UseEventLogParams) {
-  const supabase = useMemo(() => createClient(), []);
   const [events, setEvents] = useState<EventWithRelations[]>(() =>
     initialEvents.map((row) => enrichEvent(row, categories, caregiverNamesById))
   );
@@ -80,34 +78,12 @@ export function useEventLog({
     [categories, caregiverNamesById]
   );
 
-  useEffect(() => {
-    const channel = supabase
-      .channel(`events-${babyId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "events",
-          filter: `baby_id=eq.${babyId}`,
-        },
-        (payload) => {
-          if (payload.eventType === "DELETE") {
-            const oldId = (payload.old as Partial<BabyEvent>).id;
-            if (oldId) {
-              setEvents((prev) => prev.filter((e) => e.id !== oldId));
-            }
-            return;
-          }
-          upsertEvent(payload.new as BabyEvent);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [supabase, babyId, upsertEvent]);
+  // Nota de aprendizaje: con Supabase, un canal de Realtime (postgres_changes)
+  // mantenía sincronizados a los dos caregivers en vivo. Neon no tiene un
+  // equivalente integrado, así que por ahora cada pestaña solo ve sus propias
+  // mutaciones (actualización optimista via upsertEvent más abajo) — el otro
+  // caregiver necesita refrescar para ver los eventos nuevos. Es una limitación
+  // conocida, no un bug.
 
   // Mutación compartida: crea/cierra un evento y refleja el resultado en el
   // estado local. Botón y voz llaman esto con distinto texto de feedback.
@@ -119,7 +95,6 @@ export function useEventLog({
     ) => {
       setPendingCategoryId(category.id);
       const { data, error } = await recordCategoryEvent({
-        supabase,
         babyId,
         caregiverId,
         category,
@@ -140,7 +115,7 @@ export function useEventLog({
 
       return data;
     },
-    [supabase, babyId, caregiverId, showToast, upsertEvent]
+    [babyId, caregiverId, showToast, upsertEvent]
   );
 
   const recordButtonPress = useCallback(

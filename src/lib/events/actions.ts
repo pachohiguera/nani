@@ -1,10 +1,11 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, EventCategory, EventOrigin } from "@/types/database";
+"use server";
 
-type Client = SupabaseClient<Database>;
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { events } from "@/lib/db/schema";
+import type { BabyEvent, EventCategory, EventOrigin } from "@/types/database";
 
 interface RecordParams {
-  supabase: Client;
   babyId: string;
   caregiverId: string;
   category: Pick<EventCategory, "id" | "tipo">;
@@ -12,49 +13,43 @@ interface RecordParams {
   openEventId?: string | null;
 }
 
+interface RecordResult {
+  data: BabyEvent | null;
+  error: { message: string } | null;
+}
+
 // Botón y voz comparten esta lógica: categorías de duración arrancan un
 // cronómetro si no hay uno abierto para esa categoría, o lo cierran si ya
 // hay uno corriendo. Las instantáneas se registran de una sola vez.
+// duration_seconds lo calcula el trigger de Postgres al cerrar el evento.
 export async function recordCategoryEvent({
-  supabase,
   babyId,
   caregiverId,
   category,
   origen,
   openEventId,
-}: RecordParams) {
-  if (category.tipo === "instantaneo") {
-    return supabase
-      .from("events")
-      .insert({
+}: RecordParams): Promise<RecordResult> {
+  try {
+    if (category.tipo === "duracion" && openEventId) {
+      const [row] = await db
+        .update(events)
+        .set({ ended_at: new Date().toISOString() })
+        .where(eq(events.id, openEventId))
+        .returning();
+      return { data: row ?? null, error: row ? null : { message: "Evento no encontrado" } };
+    }
+
+    const [row] = await db
+      .insert(events)
+      .values({
         baby_id: babyId,
         category_id: category.id,
         caregiver_id: caregiverId,
-        started_at: new Date().toISOString(),
         origen,
       })
-      .select()
-      .single();
+      .returning();
+    return { data: row ?? null, error: row ? null : { message: "No se pudo insertar" } };
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Error desconocido" } };
   }
-
-  if (openEventId) {
-    return supabase
-      .from("events")
-      .update({ ended_at: new Date().toISOString() })
-      .eq("id", openEventId)
-      .select()
-      .single();
-  }
-
-  return supabase
-    .from("events")
-    .insert({
-      baby_id: babyId,
-      category_id: category.id,
-      caregiver_id: caregiverId,
-      started_at: new Date().toISOString(),
-      origen,
-    })
-    .select()
-    .single();
 }

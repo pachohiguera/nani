@@ -2,10 +2,12 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { authClient } from "@/lib/auth/client";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -16,16 +18,19 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } =
+      mode === "signin"
+        ? await authClient.signIn.email({ email, password })
+        : await authClient.signUp.email({ email, password, name });
 
     setLoading(false);
 
     if (error) {
-      setError("Correo o contraseña incorrectos.");
+      setError(
+        mode === "signin"
+          ? "Correo o contraseña incorrectos."
+          : error.message ?? "No se pudo crear la cuenta."
+      );
       return;
     }
 
@@ -40,10 +45,30 @@ export default function LoginPage() {
           Nani
         </h1>
         <p className="mb-8 text-center text-zinc-400">
-          Inicia sesión para seguir a tu bebé
+          {mode === "signin"
+            ? "Inicia sesión para seguir a tu bebé"
+            : "Crea tu cuenta de caregiver"}
         </p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {mode === "signup" && (
+            <div className="flex flex-col gap-2">
+              <label htmlFor="name" className="text-sm font-medium text-zinc-300">
+                Tu nombre
+              </label>
+              <input
+                id="name"
+                type="text"
+                autoComplete="name"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="h-14 rounded-2xl border border-zinc-800 bg-zinc-900 px-4 text-lg text-white placeholder:text-zinc-600 focus:border-indigo-500 focus:outline-none"
+                placeholder="Papá"
+              />
+            </div>
+          )}
+
           <div className="flex flex-col gap-2">
             <label htmlFor="email" className="text-sm font-medium text-zinc-300">
               Correo electrónico
@@ -70,7 +95,7 @@ export default function LoginPage() {
             <input
               id="password"
               type="password"
-              autoComplete="current-password"
+              autoComplete={mode === "signin" ? "current-password" : "new-password"}
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -90,7 +115,24 @@ export default function LoginPage() {
             disabled={loading}
             className="mt-2 h-14 rounded-2xl bg-indigo-500 text-lg font-semibold text-white transition-colors active:bg-indigo-600 disabled:opacity-50"
           >
-            {loading ? "Entrando..." : "Entrar"}
+            {loading
+              ? "Un momento..."
+              : mode === "signin"
+              ? "Entrar"
+              : "Crear cuenta"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setError(null);
+              setMode(mode === "signin" ? "signup" : "signin");
+            }}
+            className="text-sm text-zinc-500 underline-offset-4 hover:underline"
+          >
+            {mode === "signin"
+              ? "¿No tienes cuenta? Créala"
+              : "¿Ya tienes cuenta? Inicia sesión"}
           </button>
         </form>
       </div>

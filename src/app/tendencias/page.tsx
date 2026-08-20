@@ -1,20 +1,19 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { and, desc, eq, gte } from "drizzle-orm";
+import { auth } from "@/lib/auth/server";
+import { db } from "@/lib/db";
+import { caregivers, event_categories, events } from "@/lib/db/schema";
 import { hoursAgoIso } from "@/lib/time";
 import { TrendsView } from "@/components/trends/trends-view";
 
+export const dynamic = "force-dynamic";
+
 export default async function TendenciasPage() {
-  const supabase = await createClient();
+  const { data: session } = await auth.getSession();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data: caregiver } = await supabase
-    .from("caregivers")
-    .select("*")
-    .eq("user_id", user!.id)
-    .maybeSingle();
+  const caregiver = await db.query.caregivers.findFirst({
+    where: eq(caregivers.user_id, session!.user.id),
+  });
 
   if (!caregiver) {
     return (
@@ -26,28 +25,20 @@ export default async function TendenciasPage() {
     );
   }
 
-  const [{ data: caregivers }, { data: categories }, { data: events }] =
-    await Promise.all([
-      supabase
-        .from("caregivers")
-        .select("id, nombre_display")
-        .eq("baby_id", caregiver.baby_id),
-      supabase
-        .from("event_categories")
-        .select("*")
-        .eq("baby_id", caregiver.baby_id)
-        .eq("activo", true)
-        .order("orden"),
-      supabase
-        .from("events")
-        .select("*")
-        .eq("baby_id", caregiver.baby_id)
-        .gte("started_at", hoursAgoIso(30 * 24))
-        .order("started_at", { ascending: false }),
-    ]);
+  const [sameBabyCaregivers, categories, rangeEvents] = await Promise.all([
+    db.query.caregivers.findMany({ where: eq(caregivers.baby_id, caregiver.baby_id) }),
+    db.query.event_categories.findMany({
+      where: and(eq(event_categories.baby_id, caregiver.baby_id), eq(event_categories.activo, true)),
+      orderBy: event_categories.orden,
+    }),
+    db.query.events.findMany({
+      where: and(eq(events.baby_id, caregiver.baby_id), gte(events.started_at, hoursAgoIso(30 * 24))),
+      orderBy: desc(events.started_at),
+    }),
+  ]);
 
   const caregiverNamesById = Object.fromEntries(
-    (caregivers ?? []).map((c) => [c.id, c.nombre_display])
+    sameBabyCaregivers.map((c) => [c.id, c.nombre_display])
   );
 
   return (
@@ -61,8 +52,8 @@ export default async function TendenciasPage() {
 
       <main className="flex-1 px-4 pb-10">
         <TrendsView
-          categories={categories ?? []}
-          events={events ?? []}
+          categories={categories}
+          events={rangeEvents}
           caregiverNamesById={caregiverNamesById}
         />
       </main>

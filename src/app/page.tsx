@@ -1,21 +1,20 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { and, desc, eq, gte } from "drizzle-orm";
+import { auth } from "@/lib/auth/server";
+import { db } from "@/lib/db";
+import { babies, caregivers, event_categories, events } from "@/lib/db/schema";
 import { hoursAgoIso } from "@/lib/time";
 import { LogoutButton } from "@/components/logout-button";
 import { TodayView } from "@/components/today/today-view";
 
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
-  const supabase = await createClient();
+  const { data: session } = await auth.getSession();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data: caregiver } = await supabase
-    .from("caregivers")
-    .select("*")
-    .eq("user_id", user!.id)
-    .maybeSingle();
+  const caregiver = await db.query.caregivers.findFirst({
+    where: eq(caregivers.user_id, session!.user.id),
+  });
 
   if (!caregiver) {
     return (
@@ -34,33 +33,21 @@ export default async function Home() {
     );
   }
 
-  const [{ data: baby }, { data: caregivers }, { data: categories }, { data: events }] =
-    await Promise.all([
-      supabase
-        .from("babies")
-        .select("nombre")
-        .eq("id", caregiver.baby_id)
-        .maybeSingle(),
-      supabase
-        .from("caregivers")
-        .select("id, nombre_display")
-        .eq("baby_id", caregiver.baby_id),
-      supabase
-        .from("event_categories")
-        .select("*")
-        .eq("baby_id", caregiver.baby_id)
-        .eq("activo", true)
-        .order("orden"),
-      supabase
-        .from("events")
-        .select("*")
-        .eq("baby_id", caregiver.baby_id)
-        .gte("started_at", hoursAgoIso(48))
-        .order("started_at", { ascending: false }),
-    ]);
+  const [baby, sameBabyCaregivers, categories, recentEvents] = await Promise.all([
+    db.query.babies.findFirst({ where: eq(babies.id, caregiver.baby_id) }),
+    db.query.caregivers.findMany({ where: eq(caregivers.baby_id, caregiver.baby_id) }),
+    db.query.event_categories.findMany({
+      where: and(eq(event_categories.baby_id, caregiver.baby_id), eq(event_categories.activo, true)),
+      orderBy: event_categories.orden,
+    }),
+    db.query.events.findMany({
+      where: and(eq(events.baby_id, caregiver.baby_id), gte(events.started_at, hoursAgoIso(48))),
+      orderBy: desc(events.started_at),
+    }),
+  ]);
 
   const caregiverNamesById = Object.fromEntries(
-    (caregivers ?? []).map((c) => [c.id, c.nombre_display])
+    sameBabyCaregivers.map((c) => [c.id, c.nombre_display])
   );
 
   return (
@@ -84,8 +71,8 @@ export default async function Home() {
         <TodayView
           babyId={caregiver.baby_id}
           caregiverId={caregiver.id}
-          categories={categories ?? []}
-          initialEvents={events ?? []}
+          categories={categories}
+          initialEvents={recentEvents}
           caregiverNamesById={caregiverNamesById}
         />
       </main>
