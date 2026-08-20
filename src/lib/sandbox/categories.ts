@@ -16,4 +16,5 @@ export const SANDBOX_CATEGORIES: SandboxCategory[] = [
   { id: "biberon", nombre: "Biberón", tipo: "duracion", color: "#3b82f6", icono: "🍼" },
   { id: "panal-pipi", nombre: "Pañal pipí", tipo: "instantaneo", color: "#eab308", icono: "💧" },
   { id: "panal-popo", nombre: "Pañal popó", tipo: "instantaneo", color: "#8b5cf6", icono: "💩" },
+  { id: "panal-mix", nombre: "Pañal pipí y popó", tipo: "instantaneo", color: "#78716c", icono: "🧷" },
 ];
