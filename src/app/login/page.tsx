@@ -18,24 +18,30 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
 
-    const { error } =
-      mode === "signin"
-        ? await authClient.signIn.email({ email, password })
-        : await authClient.signUp.email({ email, password, name });
-
-    setLoading(false);
-
-    if (error) {
-      setError(
+    try {
+      const { error } =
         mode === "signin"
-          ? "Correo o contraseña incorrectos."
-          : error.message ?? "No se pudo crear la cuenta."
-      );
-      return;
-    }
+          ? await authClient.signIn.email({ email, password })
+          : await authClient.signUp.email({ email, password, name });
 
-    router.push("/");
-    router.refresh();
+      if (error) {
+        setError(
+          mode === "signin"
+            ? "Correo o contraseña incorrectos."
+            : error.message ?? "No se pudo crear la cuenta."
+        );
+        return;
+      }
+
+      router.push("/");
+      router.refresh();
+    } catch (e) {
+      setError(
+        e instanceof Error ? `Error inesperado: ${e.message}` : "Error inesperado, intenta de nuevo."
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
