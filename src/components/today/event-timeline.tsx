@@ -31,9 +31,9 @@ export function EventTimeline({ events, onEditDuration }: EventTimelineProps) {
     );
   }
 
-  function startEditing(event: EventWithRelations) {
-    setEditingId(event.id);
-    setDraftMinutes(String(Math.round((event.duration_seconds ?? 0) / 60)));
+  function startEditing(key: string, totalSeconds: number) {
+    setEditingId(key);
+    setDraftMinutes(String(Math.round(totalSeconds / 60)));
   }
 
   function cancelEditing() {
@@ -41,10 +41,10 @@ export function EventTimeline({ events, onEditDuration }: EventTimelineProps) {
     setDraftMinutes("");
   }
 
-  function saveEditing(eventId: string) {
+  function saveEditing(key: string) {
     const minutes = Number(draftMinutes);
     if (Number.isFinite(minutes) && minutes >= 0) {
-      onEditDuration?.(eventId, minutes);
+      onEditDuration?.(key, minutes);
     }
     setEditingId(null);
     setDraftMinutes("");
@@ -53,20 +53,18 @@ export function EventTimeline({ events, onEditDuration }: EventTimelineProps) {
   return (
     <ul className="flex flex-col gap-2">
       {sessions.map((session) => {
-        // Una sesión con cambio de lado (izq. -> der.) queda como una sola
-        // fila con duración combinada; editar minutos ahí sería ambiguo
-        // (¿qué lado?), así que esa edición solo aplica a eventos sueltos.
-        const isMerged = session.events.length > 1;
         const lastEvent = session.events[session.events.length - 1];
         const category = lastEvent.event_categories;
+        // Editable incluso con cambio de lado: el número que se ingresa es
+        // el total de la sesión, y solo se ajusta el último tramo para que
+        // la suma dé eso (ver updateSessionDuration).
         const isEditable =
-          !isMerged &&
           Boolean(onEditDuration) &&
           lastEvent.ended_at !== null &&
           category !== null &&
           category.tipo === "duracion" &&
           supportsPause(category.icono);
-        const isEditing = editingId === lastEvent.id;
+        const isEditing = editingId === session.key;
         const running = sessionIsRunning(session);
         const totalSeconds = sessionDurationSeconds(session);
 
@@ -79,7 +77,10 @@ export function EventTimeline({ events, onEditDuration }: EventTimelineProps) {
               type="button"
               onClick={
                 isEditable
-                  ? () => (isEditing ? cancelEditing() : startEditing(lastEvent))
+                  ? () =>
+                      isEditing
+                        ? cancelEditing()
+                        : startEditing(session.key, totalSeconds ?? 0)
                   : undefined
               }
               disabled={!isEditable}
@@ -110,7 +111,7 @@ export function EventTimeline({ events, onEditDuration }: EventTimelineProps) {
                   <span className="text-xs text-zinc-500">min</span>
                   <button
                     type="button"
-                    onClick={() => saveEditing(lastEvent.id)}
+                    onClick={() => saveEditing(session.key)}
                     className="rounded-lg bg-indigo-500 px-2 py-1 text-xs font-semibold text-white active:bg-indigo-600"
                   >
                     Guardar

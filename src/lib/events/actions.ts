@@ -1,6 +1,6 @@
 "use server";
 
-import { and, desc, eq, gte } from "drizzle-orm";
+import { and, desc, eq, gte, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { events } from "@/lib/db/schema";
 import { hoursAgoIso } from "@/lib/time";
@@ -98,23 +98,34 @@ export async function resumeEvent(eventId: string): Promise<RecordResult> {
   }
 }
 
-// Edición manual desde el historial: sobreescribe la duración total en
-// minutos (reseteando el tiempo pausado, ya que el número que ingresa la
-// persona ya es el total que quiere que quede guardado).
-export async function updateEventDuration(eventId: string, minutes: number): Promise<RecordResult> {
+// Edición manual desde el historial: sobreescribe la duración TOTAL de la
+// sesión en minutos (útil si se olvidó pausar/parar a tiempo). `sessionKey`
+// es el session_id compartido si hubo cambio de lado, o el id del propio
+// evento si es uno suelto — ambos casos quedan cubiertos por el mismo where.
+// Los tramos anteriores al último quedan como están; el último se estira o
+// encoge para que la suma dé exactamente los minutos ingresados.
+export async function updateSessionDuration(sessionKey: string, minutes: number): Promise<RecordResult> {
   try {
-    const [current] = await db.select().from(events).where(eq(events.id, eventId));
-    if (!current) return { data: null, error: { message: "Evento no encontrado" } };
+    const rows = await db
+      .select()
+      .from(events)
+      .where(or(eq(events.session_id, sessionKey), eq(events.id, sessionKey)))
+      .orderBy(events.started_at);
+    if (rows.length === 0) return { data: null, error: { message: "Evento no encontrado" } };
 
-    const clampedMinutes = Math.max(0, Math.round(minutes));
-    const endedAt = new Date(
-      new Date(current.started_at).getTime() + clampedMinutes * 60_000
-    ).toISOString();
+    const last = rows[rows.length - 1];
+    const priorSeconds = rows
+      .slice(0, -1)
+      .reduce((sum, row) => sum + (row.duration_seconds ?? 0), 0);
+
+    const totalSeconds = Math.max(0, Math.round(minutes) * 60);
+    const lastSeconds = Math.max(0, totalSeconds - priorSeconds);
+    const endedAt = new Date(new Date(last.started_at).getTime() + lastSeconds * 1000).toISOString();
 
     const [row] = await db
       .update(events)
       .set({ ended_at: endedAt, paused_seconds: 0, paused_at: null })
-      .where(eq(events.id, eventId))
+      .where(eq(events.id, last.id))
       .returning();
     return { data: row ?? null, error: row ? null : { message: "No se pudo actualizar" } };
   } catch (e) {

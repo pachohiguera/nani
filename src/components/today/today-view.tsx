@@ -35,7 +35,7 @@ export function TodayView({
     recordButtonPress,
     recordVoiceTranscript,
     togglePause,
-    editEventDuration,
+    editSessionDuration,
     switchSide,
   } = useEventLog({
     babyId,
@@ -72,7 +72,7 @@ export function TodayView({
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">
           Hoy
         </h2>
-        <EventTimeline events={todaysEvents} onEditDuration={editEventDuration} />
+        <EventTimeline events={todaysEvents} onEditDuration={editSessionDuration} />
       </div>
     </div>
   );

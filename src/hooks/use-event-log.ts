@@ -7,7 +7,7 @@ import {
   recordCategoryEvent,
   resumeEvent,
   switchBreastSide,
-  updateEventDuration,
+  updateSessionDuration,
 } from "@/lib/events/actions";
 import { oppositeBreastIcono } from "@/lib/categories";
 import { enrichEvent } from "@/lib/events/enrich";
@@ -305,10 +305,12 @@ export function useEventLog({
   );
 
   // Edición manual desde el historial (senos y sueño): la persona escribe
-  // los minutos totales que quiere que quede el evento.
-  const editEventDuration = useCallback(
-    async (eventId: string, minutes: number) => {
-      const { data, error } = await updateEventDuration(eventId, minutes);
+  // los minutos totales que quiere que quede la sesión completa, aunque haya
+  // tenido cambio de lado — sessionKey es el session_id compartido o, para
+  // un evento suelto, su propio id.
+  const editSessionDuration = useCallback(
+    async (sessionKey: string, minutes: number) => {
+      const { data, error } = await updateSessionDuration(sessionKey, minutes);
       if (error || !data) {
         showToast("No se pudo actualizar, intenta de nuevo");
         return;
@@ -331,7 +333,7 @@ export function useEventLog({
     recordButtonPress,
     recordVoiceTranscript,
     togglePause,
-    editEventDuration,
+    editSessionDuration,
     switchSide,
   };
 }
