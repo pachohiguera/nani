@@ -36,6 +36,8 @@ export type BabyEvent = {
   started_at: string;
   ended_at: string | null;
   duration_seconds: number | null;
+  paused_seconds: number;
+  paused_at: string | null;
   notas: string | null;
   origen: EventOrigin;
   created_at: string;

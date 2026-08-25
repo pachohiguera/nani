@@ -34,6 +34,8 @@ export function TodayView({
     pendingCategoryId,
     recordButtonPress,
     recordVoiceTranscript,
+    togglePause,
+    editEventDuration,
   } = useEventLog({
     babyId,
     caregiverId,
@@ -59,6 +61,7 @@ export function TodayView({
         flashCategoryId={flashCategoryId}
         pendingCategoryId={pendingCategoryId}
         onPress={recordButtonPress}
+        onTogglePause={togglePause}
       />
 
       <VoiceControls recordVoiceTranscript={recordVoiceTranscript} />
@@ -67,7 +70,7 @@ export function TodayView({
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">
           Hoy
         </h2>
-        <EventTimeline events={todaysEvents} />
+        <EventTimeline events={todaysEvents} onEditDuration={editEventDuration} />
       </div>
     </div>
   );

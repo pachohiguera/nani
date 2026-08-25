@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import { recordCategoryEvent } from "@/lib/events/actions";
+import { pauseEvent, recordCategoryEvent, resumeEvent, updateEventDuration } from "@/lib/events/actions";
 import { enrichEvent } from "@/lib/events/enrich";
 import { matchVoiceCommand } from "@/lib/voice/commands";
 import { startOfLocalDay } from "@/lib/time";
@@ -46,7 +46,14 @@ export function useEventLog({
   }, [events]);
 
   const hasOpenEvents = openEventsByCategory.size > 0;
-  const now = useTickingClock(hasOpenEvents);
+  // El reloj solo necesita tickear si hay algo corriendo de verdad — un
+  // cronómetro en pausa no cambia de un segundo a otro, así que no hace
+  // falta re-renderizar cada segundo solo por eso (batería).
+  const hasActiveEvents = useMemo(
+    () => [...openEventsByCategory.values()].some((event) => event.paused_at === null),
+    [openEventsByCategory]
+  );
+  const now = useTickingClock(hasActiveEvents);
 
   const todaysEvents = useMemo(() => {
     const startOfToday = startOfLocalDay();
@@ -191,6 +198,44 @@ export function useEventLog({
     [categories, mutate, openEventsByCategory, showToast]
   );
 
+  // Pausar/reanudar un cronómetro de seno o sueño sin cerrarlo. No usa
+  // `mutate` porque no crea un evento nuevo ni dispara el flash/toast de
+  // "registrado" — es un ajuste silencioso del mismo evento abierto.
+  const togglePause = useCallback(
+    async (category: EventCategory) => {
+      const openEvent = openEventsByCategory.get(category.id);
+      if (!openEvent) return;
+
+      const isPaused = openEvent.paused_at !== null;
+      const { data, error } = isPaused
+        ? await resumeEvent(openEvent.id)
+        : await pauseEvent(openEvent.id);
+
+      if (error || !data) {
+        showToast("No se pudo actualizar, intenta de nuevo");
+        return;
+      }
+
+      upsertEvent(data);
+    },
+    [openEventsByCategory, showToast, upsertEvent]
+  );
+
+  // Edición manual desde el historial (senos y sueño): la persona escribe
+  // los minutos totales que quiere que quede el evento.
+  const editEventDuration = useCallback(
+    async (eventId: string, minutes: number) => {
+      const { data, error } = await updateEventDuration(eventId, minutes);
+      if (error || !data) {
+        showToast("No se pudo actualizar, intenta de nuevo");
+        return;
+      }
+      upsertEvent(data);
+      showToast("Duración actualizada");
+    },
+    [showToast, upsertEvent]
+  );
+
   return {
     events,
     todaysEvents,
@@ -202,5 +247,7 @@ export function useEventLog({
     pendingCategoryId,
     recordButtonPress,
     recordVoiceTranscript,
+    togglePause,
+    editEventDuration,
   };
 }

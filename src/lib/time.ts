@@ -33,11 +33,8 @@ export function formatDuration(totalSeconds: number): string {
   return `${secs} s`;
 }
 
-export function formatElapsedClock(startedAtIso: string, now: Date): string {
-  const totalSeconds = Math.max(
-    0,
-    Math.floor((now.getTime() - new Date(startedAtIso).getTime()) / 1000)
-  );
+export function formatSecondsClock(totalSecondsInput: number): string {
+  const totalSeconds = Math.max(0, Math.floor(totalSecondsInput));
   const hours = Math.floor(totalSeconds / 3600);
   const mins = Math.floor((totalSeconds % 3600) / 60);
   const secs = totalSeconds % 60;
@@ -47,6 +44,11 @@ export function formatElapsedClock(startedAtIso: string, now: Date): string {
   return hours > 0
     ? `${hours}:${pad(mins)}:${pad(secs)}`
     : `${pad(mins)}:${pad(secs)}`;
+}
+
+export function formatElapsedClock(startedAtIso: string, now: Date): string {
+  const totalSeconds = (now.getTime() - new Date(startedAtIso).getTime()) / 1000;
+  return formatSecondsClock(totalSeconds);
 }
 
 export function hoursAgoIso(hours: number): string {

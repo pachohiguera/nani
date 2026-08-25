@@ -27,3 +27,12 @@ export function iconFor(icono: string): string {
 export function groupFor(icono: string): CategoryGroup {
   return GROUPS[icono] ?? "otro";
 }
+
+// Categorías donde tiene sentido pausar sin cerrar el evento: tomas de pecho
+// (el bebé se puede soltar y volver a agarrar) y sueño (se puede despertar y
+// volver a dormir). El biberón y los pañales no lo necesitan.
+const PAUSABLE_ICONS = new Set(["breast-left", "breast-right", "moon"]);
+
+export function supportsPause(icono: string): boolean {
+  return PAUSABLE_ICONS.has(icono);
+}

@@ -11,6 +11,7 @@ interface CategoryGridProps {
   flashCategoryId: string | null;
   pendingCategoryId: string | null;
   onPress: (category: EventCategory) => void;
+  onTogglePause: (category: EventCategory) => void;
 }
 
 export function CategoryGrid({
@@ -20,6 +21,7 @@ export function CategoryGrid({
   flashCategoryId,
   pendingCategoryId,
   onPress,
+  onTogglePause,
 }: CategoryGridProps) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -29,12 +31,12 @@ export function CategoryGrid({
           <CategoryButton
             key={category.id}
             category={category}
-            isRunning={Boolean(openEvent)}
-            startedAt={openEvent?.started_at}
+            openEvent={openEvent}
             now={now}
             flash={flashCategoryId === category.id}
             disabled={pendingCategoryId === category.id}
             onPress={() => onPress(category)}
+            onTogglePause={() => onTogglePause(category)}
           />
         );
       })}

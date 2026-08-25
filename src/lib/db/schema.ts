@@ -97,6 +97,8 @@ export const events = pgTable(
       .defaultNow(),
     ended_at: timestamp("ended_at", { withTimezone: true, mode: "string" }),
     duration_seconds: integer("duration_seconds"),
+    paused_seconds: integer("paused_seconds").notNull().default(0),
+    paused_at: timestamp("paused_at", { withTimezone: true, mode: "string" }),
     notas: text("notas"),
     origen: text("origen").notNull().default("boton").$type<EventOrigin>(),
     created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
