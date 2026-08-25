@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { iconFor, supportsPause } from "@/lib/categories";
-import { formatClockTime, formatDuration } from "@/lib/time";
+import { formatClockTime, formatDuration, toTimeInputValue, withTimeOfDay } from "@/lib/time";
 import {
   groupSessions,
   sessionDurationSeconds,
@@ -14,12 +14,13 @@ import type { EventWithRelations } from "@/types/today";
 
 interface EventTimelineProps {
   events: EventWithRelations[];
-  onEditDuration?: (eventId: string, minutes: number) => void;
+  onEditDuration?: (sessionKey: string, minutes: number, startedAt?: string) => void;
 }
 
 export function EventTimeline({ events, onEditDuration }: EventTimelineProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftMinutes, setDraftMinutes] = useState("");
+  const [draftTime, setDraftTime] = useState("");
 
   const sessions = groupSessions(events);
 
@@ -31,23 +32,27 @@ export function EventTimeline({ events, onEditDuration }: EventTimelineProps) {
     );
   }
 
-  function startEditing(key: string, totalSeconds: number) {
+  function startEditing(key: string, totalSeconds: number, startedAtIso: string) {
     setEditingId(key);
     setDraftMinutes(String(Math.round(totalSeconds / 60)));
+    setDraftTime(toTimeInputValue(startedAtIso));
   }
 
   function cancelEditing() {
     setEditingId(null);
     setDraftMinutes("");
+    setDraftTime("");
   }
 
-  function saveEditing(key: string) {
+  function saveEditing(key: string, originalStartedAtIso: string) {
     const minutes = Number(draftMinutes);
     if (Number.isFinite(minutes) && minutes >= 0) {
-      onEditDuration?.(key, minutes);
+      const startedAt = draftTime ? withTimeOfDay(originalStartedAtIso, draftTime) : undefined;
+      onEditDuration?.(key, minutes, startedAt);
     }
     setEditingId(null);
     setDraftMinutes("");
+    setDraftTime("");
   }
 
   return (
@@ -80,7 +85,7 @@ export function EventTimeline({ events, onEditDuration }: EventTimelineProps) {
                   ? () =>
                       isEditing
                         ? cancelEditing()
-                        : startEditing(session.key, totalSeconds ?? 0)
+                        : startEditing(session.key, totalSeconds ?? 0, sessionStartedAt(session))
                   : undefined
               }
               disabled={!isEditable}
@@ -98,31 +103,42 @@ export function EventTimeline({ events, onEditDuration }: EventTimelineProps) {
                 {sessionLabel(session) || "Evento"}
               </p>
               {isEditing ? (
-                <div className="mt-1 flex items-center gap-2">
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    autoFocus
-                    value={draftMinutes}
-                    onChange={(e) => setDraftMinutes(e.target.value)}
-                    className="h-8 w-16 rounded-lg border border-zinc-700 bg-zinc-950 px-2 text-sm text-white"
-                  />
-                  <span className="text-xs text-zinc-500">min</span>
-                  <button
-                    type="button"
-                    onClick={() => saveEditing(session.key)}
-                    className="rounded-lg bg-indigo-500 px-2 py-1 text-xs font-semibold text-white active:bg-indigo-600"
-                  >
-                    Guardar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={cancelEditing}
-                    className="text-xs text-zinc-500"
-                  >
-                    Cancelar
-                  </button>
+                <div className="mt-1 flex flex-col gap-1.5">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      autoFocus
+                      value={draftMinutes}
+                      onChange={(e) => setDraftMinutes(e.target.value)}
+                      className="h-8 w-16 rounded-lg border border-zinc-700 bg-zinc-950 px-2 text-sm text-white"
+                    />
+                    <span className="text-xs text-zinc-500">min</span>
+                    <span className="text-xs text-zinc-600">empezó a las</span>
+                    <input
+                      type="time"
+                      value={draftTime}
+                      onChange={(e) => setDraftTime(e.target.value)}
+                      className="h-8 rounded-lg border border-zinc-700 bg-zinc-950 px-2 text-sm text-white"
+                    />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => saveEditing(session.key, sessionStartedAt(session))}
+                      className="rounded-lg bg-indigo-500 px-2 py-1 text-xs font-semibold text-white active:bg-indigo-600"
+                    >
+                      Guardar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelEditing}
+                      className="text-xs text-zinc-500"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <p className="text-xs text-zinc-400">

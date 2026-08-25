@@ -55,6 +55,22 @@ export function hoursAgoIso(hours: number): string {
   return new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
 }
 
+// Para el input <input type="time"> del editor de historial: "HH:MM" en
+// hora local, y de vuelta a un ISO conservando el día del timestamp original
+// (no soporta editar cruzando la medianoche, no hace falta para este uso).
+export function toTimeInputValue(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+export function withTimeOfDay(originalIso: string, hhmm: string): string {
+  const d = new Date(originalIso);
+  const [hours, minutes] = hhmm.split(":").map(Number);
+  d.setHours(hours, minutes, 0, 0);
+  return d.toISOString();
+}
+
 export function startOfLocalDay(date: Date = new Date()): Date {
   const start = new Date(date);
   start.setHours(0, 0, 0, 0);

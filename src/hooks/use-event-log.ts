@@ -305,18 +305,19 @@ export function useEventLog({
   );
 
   // Edición manual desde el historial (senos y sueño): la persona escribe
-  // los minutos totales que quiere que quede la sesión completa, aunque haya
-  // tenido cambio de lado — sessionKey es el session_id compartido o, para
-  // un evento suelto, su propio id.
+  // los minutos totales que quiere que quede la sesión completa (aunque haya
+  // tenido cambio de lado) y, opcionalmente, corrige la hora en que empezó
+  // — por si se olvidó registrarla a tiempo. sessionKey es el session_id
+  // compartido o, para un evento suelto, su propio id.
   const editSessionDuration = useCallback(
-    async (sessionKey: string, minutes: number) => {
-      const { data, error } = await updateSessionDuration(sessionKey, minutes);
+    async (sessionKey: string, minutes: number, startedAt?: string) => {
+      const { data, error } = await updateSessionDuration(sessionKey, minutes, startedAt);
       if (error || !data) {
         showToast("No se pudo actualizar, intenta de nuevo");
         return;
       }
-      upsertEvent(data);
-      showToast("Duración actualizada");
+      data.forEach(upsertEvent);
+      showToast("Evento actualizado");
     },
     [showToast, upsertEvent]
   );

@@ -98,13 +98,23 @@ export async function resumeEvent(eventId: string): Promise<RecordResult> {
   }
 }
 
+interface SessionUpdateResult {
+  data: BabyEvent[] | null;
+  error: { message: string } | null;
+}
+
 // Edición manual desde el historial: sobreescribe la duración TOTAL de la
-// sesión en minutos (útil si se olvidó pausar/parar a tiempo). `sessionKey`
-// es el session_id compartido si hubo cambio de lado, o el id del propio
-// evento si es uno suelto — ambos casos quedan cubiertos por el mismo where.
-// Los tramos anteriores al último quedan como están; el último se estira o
-// encoge para que la suma dé exactamente los minutos ingresados.
-export async function updateSessionDuration(sessionKey: string, minutes: number): Promise<RecordResult> {
+// sesión en minutos, y opcionalmente la hora en que empezó (por si se
+// olvidó registrar a tiempo). `sessionKey` es el session_id compartido si
+// hubo cambio de lado, o el id del propio evento si es uno suelto — ambos
+// casos quedan cubiertos por el mismo where. Los tramos intermedios quedan
+// como están; solo se puede mover el inicio del primero, y el último se
+// estira o encoge para que la suma dé exactamente los minutos ingresados.
+export async function updateSessionDuration(
+  sessionKey: string,
+  minutes: number,
+  startedAt?: string
+): Promise<SessionUpdateResult> {
   try {
     const rows = await db
       .select()
@@ -113,21 +123,46 @@ export async function updateSessionDuration(sessionKey: string, minutes: number)
       .orderBy(events.started_at);
     if (rows.length === 0) return { data: null, error: { message: "Evento no encontrado" } };
 
+    const first = rows[0];
     const last = rows[rows.length - 1];
+    const updated: BabyEvent[] = [];
+    let firstStartedAt = first.started_at;
+
+    if (startedAt && first.id !== last.id) {
+      const [updatedFirst] = await db
+        .update(events)
+        .set({ started_at: startedAt })
+        .where(eq(events.id, first.id))
+        .returning();
+      if (!updatedFirst) return { data: null, error: { message: "No se pudo actualizar" } };
+      updated.push(updatedFirst);
+      firstStartedAt = updatedFirst.started_at;
+    } else if (startedAt) {
+      firstStartedAt = startedAt;
+    }
+
     const priorSeconds = rows
       .slice(0, -1)
       .reduce((sum, row) => sum + (row.duration_seconds ?? 0), 0);
-
     const totalSeconds = Math.max(0, Math.round(minutes) * 60);
     const lastSeconds = Math.max(0, totalSeconds - priorSeconds);
-    const endedAt = new Date(new Date(last.started_at).getTime() + lastSeconds * 1000).toISOString();
+    const lastStartedAt = first.id === last.id ? firstStartedAt : last.started_at;
+    const endedAt = new Date(new Date(lastStartedAt).getTime() + lastSeconds * 1000).toISOString();
 
-    const [row] = await db
+    const [updatedLast] = await db
       .update(events)
-      .set({ ended_at: endedAt, paused_seconds: 0, paused_at: null })
+      .set({
+        ...(first.id === last.id ? { started_at: firstStartedAt } : {}),
+        ended_at: endedAt,
+        paused_seconds: 0,
+        paused_at: null,
+      })
       .where(eq(events.id, last.id))
       .returning();
-    return { data: row ?? null, error: row ? null : { message: "No se pudo actualizar" } };
+    if (!updatedLast) return { data: null, error: { message: "No se pudo actualizar" } };
+    updated.push(updatedLast);
+
+    return { data: updated, error: null };
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Error desconocido" } };
   }
