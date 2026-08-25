@@ -1,8 +1,9 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, desc, eq, gte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { events } from "@/lib/db/schema";
+import { hoursAgoIso } from "@/lib/time";
 import type { BabyEvent, EventCategory, EventOrigin } from "@/types/database";
 
 interface RecordParams {
@@ -119,4 +120,14 @@ export async function updateEventDuration(eventId: string, minutes: number): Pro
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Error desconocido" } };
   }
+}
+
+// Usado por el polling del cliente para que los dos caregivers se vean entre
+// sí sin refrescar (mismo alcance de 48h que carga la página al entrar).
+export async function getRecentEvents(babyId: string): Promise<BabyEvent[]> {
+  return db
+    .select()
+    .from(events)
+    .where(and(eq(events.baby_id, babyId), gte(events.started_at, hoursAgoIso(48))))
+    .orderBy(desc(events.started_at));
 }

@@ -1,13 +1,21 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
-import { pauseEvent, recordCategoryEvent, resumeEvent, updateEventDuration } from "@/lib/events/actions";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  getRecentEvents,
+  pauseEvent,
+  recordCategoryEvent,
+  resumeEvent,
+  updateEventDuration,
+} from "@/lib/events/actions";
 import { enrichEvent } from "@/lib/events/enrich";
 import { matchVoiceCommand } from "@/lib/voice/commands";
 import { startOfLocalDay } from "@/lib/time";
 import { useTickingClock } from "@/hooks/use-ticking-clock";
 import type { BabyEvent, EventCategory, EventOrigin } from "@/types/database";
 import type { EventWithRelations } from "@/types/today";
+
+const POLL_INTERVAL_MS = 20_000;
 
 interface UseEventLogParams {
   babyId: string;
@@ -87,10 +95,35 @@ export function useEventLog({
 
   // Nota de aprendizaje: con Supabase, un canal de Realtime (postgres_changes)
   // mantenía sincronizados a los dos caregivers en vivo. Neon no tiene un
-  // equivalente integrado, así que por ahora cada pestaña solo ve sus propias
-  // mutaciones (actualización optimista via upsertEvent más abajo) — el otro
-  // caregiver necesita refrescar para ver los eventos nuevos. Es una limitación
-  // conocida, no un bug.
+  // equivalente integrado, así que en su lugar hacemos polling: cada 20s (y
+  // al volver a la pestaña) se vuelve a pedir la lista completa y se
+  // reemplaza el estado local. No es instantáneo como Realtime, pero para
+  // dos personas registrando eventos de un bebé es más que suficiente, y no
+  // agrega ninguna infraestructura nueva.
+  useEffect(() => {
+    let cancelled = false;
+
+    async function sync() {
+      const rows = await getRecentEvents(babyId);
+      if (cancelled) return;
+      setEvents(rows.map((row) => enrichEvent(row, categories, caregiverNamesById)));
+    }
+
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === "visible") sync();
+    }, POLL_INTERVAL_MS);
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") sync();
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [babyId, categories, caregiverNamesById]);
 
   // Mutación compartida: crea/cierra un evento y refleja el resultado en el
   // estado local. Botón y voz llaman esto con distinto texto de feedback.
