@@ -3,6 +3,7 @@
 import { useEventLog } from "@/hooks/use-event-log";
 import { useWakeLock } from "@/hooks/use-wake-lock";
 import { CategoryGrid } from "@/components/today/category-grid";
+import { CryingGuide } from "@/components/today/crying-guide";
 import { SummaryCards } from "@/components/today/summary-cards";
 import { EventTimeline } from "@/components/today/event-timeline";
 import { Toast } from "@/components/today/toast";
@@ -54,6 +55,8 @@ export function TodayView({
       <Toast message={toastMessage} />
 
       <SummaryCards events={todaysEvents} now={now} />
+
+      <CryingGuide />
 
       <CategoryGrid
         categories={categories}
