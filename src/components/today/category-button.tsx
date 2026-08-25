@@ -1,6 +1,6 @@
 "use client";
 
-import { iconFor, supportsPause } from "@/lib/categories";
+import { iconFor, oppositeBreastIcono, supportsPause } from "@/lib/categories";
 import { formatSecondsClock } from "@/lib/time";
 import type { EventCategory } from "@/types/database";
 import type { EventWithRelations } from "@/types/today";
@@ -13,6 +13,7 @@ interface CategoryButtonProps {
   disabled?: boolean;
   onPress: () => void;
   onTogglePause?: () => void;
+  onSwitchSide?: () => void;
 }
 
 // Segundos "activos" transcurridos: descuenta el tiempo pausado, y si está
@@ -33,11 +34,13 @@ export function CategoryButton({
   disabled,
   onPress,
   onTogglePause,
+  onSwitchSide,
 }: CategoryButtonProps) {
   const isDuration = category.tipo === "duracion";
   const isRunning = Boolean(openEvent);
   const isPausable = isDuration && supportsPause(category.icono);
   const isPaused = Boolean(openEvent?.paused_at);
+  const isBreast = oppositeBreastIcono(category.icono) !== null;
 
   if (isRunning && isPausable && openEvent) {
     const seconds = activeElapsedSeconds(openEvent, now);
@@ -64,6 +67,18 @@ export function CategoryButton({
         <span className={`text-xs ${isPaused ? "text-zinc-400" : "text-white/80"}`}>
           {seconds == null ? "···" : isPaused ? `En pausa · ${formatSecondsClock(seconds)}` : formatSecondsClock(seconds)}
         </span>
+        {isBreast && onSwitchSide && (
+          <button
+            type="button"
+            onClick={onSwitchSide}
+            disabled={disabled}
+            className={`mt-1 w-full rounded-xl py-1.5 text-xs font-semibold transition-transform active:scale-95 disabled:opacity-50 ${
+              isPaused ? "bg-zinc-800 text-white" : "bg-white/20 text-white"
+            }`}
+          >
+            🔄 Cambiar de lado
+          </button>
+        )}
         <div className="mt-1 flex w-full gap-1.5">
           <button
             type="button"

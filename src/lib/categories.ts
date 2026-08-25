@@ -36,3 +36,14 @@ const PAUSABLE_ICONS = new Set(["breast-left", "breast-right", "moon"]);
 export function supportsPause(icono: string): boolean {
   return PAUSABLE_ICONS.has(icono);
 }
+
+const OPPOSITE_BREAST: Record<string, string> = {
+  "breast-left": "breast-right",
+  "breast-right": "breast-left",
+};
+
+// Para "cambiar de lado": dado el icono de un seno, el icono del otro seno.
+// null para cualquier categoría que no sea un seno (sueño, biberón, etc.).
+export function oppositeBreastIcono(icono: string): string | null {
+  return OPPOSITE_BREAST[icono] ?? null;
+}

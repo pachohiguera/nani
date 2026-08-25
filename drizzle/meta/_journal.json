@@ -15,6 +15,13 @@
       "when": 1787617104185,
       "tag": "0001_striped_martin_li",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787620519412,
+      "tag": "0002_abandoned_the_hunter",
+      "breakpoints": true
     }
   ]
 }

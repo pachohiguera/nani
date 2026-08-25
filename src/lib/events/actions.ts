@@ -122,6 +122,63 @@ export async function updateEventDuration(eventId: string, minutes: number): Pro
   }
 }
 
+interface SwitchSideParams {
+  fromEventId: string;
+  toCategoryId: string;
+  caregiverId: string;
+  origen: EventOrigin;
+}
+
+interface SwitchSideResult {
+  data: { closed: BabyEvent; opened: BabyEvent } | null;
+  error: { message: string } | null;
+}
+
+// "Cambiar de lado": cierra el evento del seno actual y abre el del otro,
+// enlazados por session_id (el id del primer evento de la sesión) para que
+// se puedan mostrar/sumar como una sola toma.
+export async function switchBreastSide({
+  fromEventId,
+  toCategoryId,
+  caregiverId,
+  origen,
+}: SwitchSideParams): Promise<SwitchSideResult> {
+  try {
+    const [current] = await db.select().from(events).where(eq(events.id, fromEventId));
+    if (!current) return { data: null, error: { message: "Evento no encontrado" } };
+
+    const pausedSeconds = current.paused_at
+      ? current.paused_seconds + elapsedSeconds(current.paused_at)
+      : current.paused_seconds;
+    const sessionId = current.session_id ?? current.id;
+    const nowIso = new Date().toISOString();
+
+    const [closed] = await db
+      .update(events)
+      .set({ ended_at: nowIso, paused_seconds: pausedSeconds, paused_at: null, session_id: sessionId })
+      .where(eq(events.id, fromEventId))
+      .returning();
+
+    const [opened] = await db
+      .insert(events)
+      .values({
+        baby_id: current.baby_id,
+        category_id: toCategoryId,
+        caregiver_id: caregiverId,
+        origen,
+        session_id: sessionId,
+      })
+      .returning();
+
+    if (!closed || !opened) {
+      return { data: null, error: { message: "No se pudo cambiar de lado" } };
+    }
+    return { data: { closed, opened }, error: null };
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Error desconocido" } };
+  }
+}
+
 // Usado por el polling del cliente para que los dos caregivers se vean entre
 // sí sin refrescar (mismo alcance de 48h que carga la página al entrar).
 export async function getRecentEvents(babyId: string): Promise<BabyEvent[]> {

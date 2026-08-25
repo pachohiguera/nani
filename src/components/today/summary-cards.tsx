@@ -1,7 +1,14 @@
 "use client";
 
-import { groupFor, iconFor } from "@/lib/categories";
+import { groupFor, iconFor, type CategoryGroup } from "@/lib/categories";
 import { formatDuration, formatRelative } from "@/lib/time";
+import {
+  groupSessions,
+  sessionDurationSeconds,
+  sessionEndedAt,
+  sessionLabel,
+  type EventSession,
+} from "@/lib/events/sessions";
 import type { EventWithRelations } from "@/types/today";
 
 interface SummaryCardsProps {
@@ -9,47 +16,40 @@ interface SummaryCardsProps {
   now: Date | null;
 }
 
-function findLatest(
-  events: EventWithRelations[],
-  group: "toma" | "sueno" | "panal"
-) {
-  return events.find(
-    (event) =>
-      event.event_categories && groupFor(event.event_categories.icono) === group
-  );
+function sessionGroupOf(session: EventSession): CategoryGroup {
+  const category = session.events[0].event_categories;
+  return category ? groupFor(category.icono) : "otro";
 }
 
-function summarizeGroup(
-  events: EventWithRelations[],
-  group: "toma" | "sueno" | "panal"
-) {
-  const groupEvents = events.filter(
-    (event) => event.event_categories && groupFor(event.event_categories.icono) === group
-  );
-  const count = groupEvents.length;
-  const totalSeconds = groupEvents.reduce(
-    (sum, event) => sum + (event.duration_seconds ?? 0),
-    0
-  );
+function findLatestSession(sessions: EventSession[], group: "toma" | "sueno" | "panal") {
+  return sessions.find((session) => sessionGroupOf(session) === group);
+}
+
+function summarizeSessionGroup(sessions: EventSession[], group: "toma" | "sueno" | "panal") {
+  const matching = sessions.filter((session) => sessionGroupOf(session) === group);
+  const count = matching.length;
+  const totalSeconds = matching.reduce((sum, session) => sum + (sessionDurationSeconds(session) ?? 0), 0);
   return { count, totalSeconds };
 }
 
 function Card({
   title,
-  event,
+  session,
   now,
   emptyLabel,
   runningLabel,
   summary,
 }: {
   title: string;
-  event?: EventWithRelations;
+  session?: EventSession;
   now: Date | null;
   emptyLabel: string;
   runningLabel?: (event: EventWithRelations, now: Date) => string;
   summary?: string;
 }) {
-  const isRunning = event && event.ended_at === null && runningLabel;
+  const lastEvent = session?.events[session.events.length - 1];
+  const isRunning = Boolean(session && lastEvent && lastEvent.ended_at === null && runningLabel);
+  const totalSeconds = session ? sessionDurationSeconds(session) : null;
 
   return (
     <div className="flex flex-col gap-1 rounded-2xl bg-zinc-900 px-4 py-3">
@@ -61,25 +61,24 @@ function Card({
           <p className="whitespace-nowrap text-xs font-medium text-zinc-500">{summary}</p>
         )}
       </div>
-      {!event ? (
+      {!session || !lastEvent ? (
         <p className="text-sm text-zinc-400">{emptyLabel}</p>
       ) : isRunning ? (
         <p className="text-sm font-semibold text-indigo-300">
-          {now ? runningLabel(event, now) : "···"}
+          {now ? runningLabel!(lastEvent, now) : "···"}
         </p>
       ) : (
         <div className="flex items-center gap-2">
           <span className="text-xl">
-            {event.event_categories ? iconFor(event.event_categories.icono) : "•"}
+            {lastEvent.event_categories ? iconFor(lastEvent.event_categories.icono) : "•"}
           </span>
           <div>
-            <p className="text-sm font-semibold text-white">
-              {event.event_categories?.nombre}
-            </p>
+            <p className="text-sm font-semibold text-white">{sessionLabel(session)}</p>
             <p className="text-xs text-zinc-400">
-              {now ? formatRelative(event.ended_at ?? event.started_at, now) : "···"}
-              {event.duration_seconds != null &&
-                ` · ${formatDuration(event.duration_seconds)}`}
+              {now
+                ? formatRelative(sessionEndedAt(session) ?? lastEvent.started_at, now)
+                : "···"}
+              {totalSeconds != null && ` · ${formatDuration(totalSeconds)}`}
             </p>
           </div>
         </div>
@@ -89,19 +88,21 @@ function Card({
 }
 
 export function SummaryCards({ events, now }: SummaryCardsProps) {
-  const lastFeed = findLatest(events, "toma");
-  const lastSleep = findLatest(events, "sueno");
-  const lastDiaper = findLatest(events, "panal");
+  const sessions = groupSessions(events);
 
-  const feedSummary = summarizeGroup(events, "toma");
-  const sleepSummary = summarizeGroup(events, "sueno");
-  const diaperSummary = summarizeGroup(events, "panal");
+  const lastFeed = findLatestSession(sessions, "toma");
+  const lastSleep = findLatestSession(sessions, "sueno");
+  const lastDiaper = findLatestSession(sessions, "panal");
+
+  const feedSummary = summarizeSessionGroup(sessions, "toma");
+  const sleepSummary = summarizeSessionGroup(sessions, "sueno");
+  const diaperSummary = summarizeSessionGroup(sessions, "panal");
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       <Card
         title="Última toma"
-        event={lastFeed}
+        session={lastFeed}
         now={now}
         emptyLabel="Sin registros hoy"
         summary={
@@ -112,7 +113,7 @@ export function SummaryCards({ events, now }: SummaryCardsProps) {
       />
       <Card
         title="Sueño"
-        event={lastSleep}
+        session={lastSleep}
         now={now}
         emptyLabel="Sin registros hoy"
         runningLabel={(event, now) => {
@@ -129,7 +130,7 @@ export function SummaryCards({ events, now }: SummaryCardsProps) {
       />
       <Card
         title="Último pañal"
-        event={lastDiaper}
+        session={lastDiaper}
         now={now}
         emptyLabel="Sin registros hoy"
         summary={diaperSummary.count > 0 ? `${diaperSummary.count}x hoy` : undefined}

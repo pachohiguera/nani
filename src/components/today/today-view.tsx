@@ -36,6 +36,7 @@ export function TodayView({
     recordVoiceTranscript,
     togglePause,
     editEventDuration,
+    switchSide,
   } = useEventLog({
     babyId,
     caregiverId,
@@ -62,6 +63,7 @@ export function TodayView({
         pendingCategoryId={pendingCategoryId}
         onPress={recordButtonPress}
         onTogglePause={togglePause}
+        onSwitchSide={switchSide}
       />
 
       <VoiceControls recordVoiceTranscript={recordVoiceTranscript} />

@@ -99,6 +99,10 @@ export const events = pgTable(
     duration_seconds: integer("duration_seconds"),
     paused_seconds: integer("paused_seconds").notNull().default(0),
     paused_at: timestamp("paused_at", { withTimezone: true, mode: "string" }),
+    // Enlaza eventos de la misma "sesión de toma" (ej. seno izq. -> der.):
+    // el primer evento de la sesión es su propio session_id; el segundo
+    // apunta al mismo valor. Null para eventos sueltos (la mayoría).
+    session_id: uuid("session_id"),
     notas: text("notas"),
     origen: text("origen").notNull().default("boton").$type<EventOrigin>(),
     created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
@@ -111,6 +115,7 @@ export const events = pgTable(
     index("idx_events_caregiver_id").on(table.caregiver_id),
     // Acelera la búsqueda del cronómetro abierto por categoría.
     index("idx_events_open").on(table.baby_id, table.category_id).where(sql`ended_at is null`),
+    index("idx_events_session_id").on(table.session_id).where(sql`session_id is not null`),
     check("events_origen_check", sql`${table.origen} in ('voz', 'boton')`),
     check(
       "events_ended_at_check",

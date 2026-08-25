@@ -38,6 +38,7 @@ export type BabyEvent = {
   duration_seconds: number | null;
   paused_seconds: number;
   paused_at: string | null;
+  session_id: string | null;
   notas: string | null;
   origen: EventOrigin;
   created_at: string;

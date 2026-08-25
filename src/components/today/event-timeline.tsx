@@ -3,6 +3,13 @@
 import { useState } from "react";
 import { iconFor, supportsPause } from "@/lib/categories";
 import { formatClockTime, formatDuration } from "@/lib/time";
+import {
+  groupSessions,
+  sessionDurationSeconds,
+  sessionIsRunning,
+  sessionLabel,
+  sessionStartedAt,
+} from "@/lib/events/sessions";
 import type { EventWithRelations } from "@/types/today";
 
 interface EventTimelineProps {
@@ -14,7 +21,9 @@ export function EventTimeline({ events, onEditDuration }: EventTimelineProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftMinutes, setDraftMinutes] = useState("");
 
-  if (events.length === 0) {
+  const sessions = groupSessions(events);
+
+  if (sessions.length === 0) {
     return (
       <p className="py-8 text-center text-sm text-zinc-500">
         Todavía no hay eventos registrados hoy.
@@ -43,29 +52,34 @@ export function EventTimeline({ events, onEditDuration }: EventTimelineProps) {
 
   return (
     <ul className="flex flex-col gap-2">
-      {events.map((event) => {
-        const category = event.event_categories;
-        // Editable a mano solo para senos y sueño ya cerrados — son los que
-        // se pueden pausar, y por lo tanto los más propensos a quedar con un
-        // tiempo raro si alguien se olvida de pausar/reanudar.
+      {sessions.map((session) => {
+        // Una sesión con cambio de lado (izq. -> der.) queda como una sola
+        // fila con duración combinada; editar minutos ahí sería ambiguo
+        // (¿qué lado?), así que esa edición solo aplica a eventos sueltos.
+        const isMerged = session.events.length > 1;
+        const lastEvent = session.events[session.events.length - 1];
+        const category = lastEvent.event_categories;
         const isEditable =
+          !isMerged &&
           Boolean(onEditDuration) &&
-          event.ended_at !== null &&
+          lastEvent.ended_at !== null &&
           category !== null &&
           category.tipo === "duracion" &&
           supportsPause(category.icono);
-        const isEditing = editingId === event.id;
+        const isEditing = editingId === lastEvent.id;
+        const running = sessionIsRunning(session);
+        const totalSeconds = sessionDurationSeconds(session);
 
         return (
           <li
-            key={event.id}
+            key={session.key}
             className="flex items-center gap-3 rounded-2xl bg-zinc-900 px-4 py-3"
           >
             <button
               type="button"
               onClick={
                 isEditable
-                  ? () => (isEditing ? cancelEditing() : startEditing(event))
+                  ? () => (isEditing ? cancelEditing() : startEditing(lastEvent))
                   : undefined
               }
               disabled={!isEditable}
@@ -80,7 +94,7 @@ export function EventTimeline({ events, onEditDuration }: EventTimelineProps) {
 
             <div className="flex-1">
               <p className="text-sm font-semibold text-white">
-                {category?.nombre ?? "Evento"}
+                {sessionLabel(session) || "Evento"}
               </p>
               {isEditing ? (
                 <div className="mt-1 flex items-center gap-2">
@@ -96,7 +110,7 @@ export function EventTimeline({ events, onEditDuration }: EventTimelineProps) {
                   <span className="text-xs text-zinc-500">min</span>
                   <button
                     type="button"
-                    onClick={() => saveEditing(event.id)}
+                    onClick={() => saveEditing(lastEvent.id)}
                     className="rounded-lg bg-indigo-500 px-2 py-1 text-xs font-semibold text-white active:bg-indigo-600"
                   >
                     Guardar
@@ -111,22 +125,22 @@ export function EventTimeline({ events, onEditDuration }: EventTimelineProps) {
                 </div>
               ) : (
                 <p className="text-xs text-zinc-400">
-                  {formatClockTime(event.started_at)}
-                  {event.ended_at === null && category?.tipo === "duracion"
+                  {formatClockTime(sessionStartedAt(session))}
+                  {running && category?.tipo === "duracion"
                     ? " · en curso"
-                    : event.duration_seconds != null
-                    ? ` · ${formatDuration(event.duration_seconds)}`
+                    : totalSeconds != null
+                    ? ` · ${formatDuration(totalSeconds)}`
                     : ""}
-                  {event.caregivers ? ` · ${event.caregivers.nombre_display}` : ""}
+                  {lastEvent.caregivers ? ` · ${lastEvent.caregivers.nombre_display}` : ""}
                 </p>
               )}
             </div>
 
             <span
               className="text-xs text-zinc-600"
-              title={event.origen === "voz" ? "Por voz" : "Por botón"}
+              title={lastEvent.origen === "voz" ? "Por voz" : "Por botón"}
             >
-              {event.origen === "voz" ? "🎙️" : "👆"}
+              {lastEvent.origen === "voz" ? "🎙️" : "👆"}
             </span>
           </li>
         );

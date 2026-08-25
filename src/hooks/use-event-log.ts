@@ -6,8 +6,10 @@ import {
   pauseEvent,
   recordCategoryEvent,
   resumeEvent,
+  switchBreastSide,
   updateEventDuration,
 } from "@/lib/events/actions";
+import { oppositeBreastIcono } from "@/lib/categories";
 import { enrichEvent } from "@/lib/events/enrich";
 import { matchVoiceCommand } from "@/lib/voice/commands";
 import { startOfLocalDay } from "@/lib/time";
@@ -158,9 +160,57 @@ export function useEventLog({
     [babyId, caregiverId, showToast, upsertEvent]
   );
 
+  // Cierra el evento del seno actual y abre el del otro, enlazados como una
+  // sola sesión de toma. Se usa tanto desde el botón explícito "Cambiar de
+  // lado" como cuando alguien toca el otro seno directamente (ver abajo).
+  const switchSide = useCallback(
+    async (fromCategory: EventCategory, toCategory: EventCategory) => {
+      const openEvent = openEventsByCategory.get(fromCategory.id);
+      if (!openEvent) return;
+
+      setPendingCategoryId(fromCategory.id);
+      const { data, error } = await switchBreastSide({
+        fromEventId: openEvent.id,
+        toCategoryId: toCategory.id,
+        caregiverId,
+        origen: "boton",
+      });
+      setPendingCategoryId(null);
+
+      if (error || !data) {
+        showToast("No se pudo cambiar de lado, intenta de nuevo");
+        return;
+      }
+
+      upsertEvent(data.closed);
+      upsertEvent(data.opened);
+      showToast(`Cambiado a ${toCategory.nombre}`);
+    },
+    [caregiverId, openEventsByCategory, showToast, upsertEvent]
+  );
+
   const recordButtonPress = useCallback(
     async (category: EventCategory) => {
       const openEvent = openEventsByCategory.get(category.id);
+
+      // Si esta categoría es un seno y el OTRO seno está corriendo, tocar
+      // este botón "para iniciar" en realidad cambia de lado, en vez de
+      // dejar dos tomas abiertas al mismo tiempo por accidente.
+      if (!openEvent && category.tipo === "duracion") {
+        const oppositeIcono = oppositeBreastIcono(category.icono);
+        const siblingCategory = oppositeIcono
+          ? categories.find((c) => c.icono === oppositeIcono)
+          : undefined;
+        const siblingOpenEvent = siblingCategory
+          ? openEventsByCategory.get(siblingCategory.id)
+          : undefined;
+
+        if (siblingCategory && siblingOpenEvent) {
+          await switchSide(siblingCategory, category);
+          return;
+        }
+      }
+
       const result = await mutate(category, openEvent?.id ?? null, "boton");
       if (!result) return;
 
@@ -172,7 +222,7 @@ export function useEventLog({
         showToast(`${category.nombre} iniciado`);
       }
     },
-    [mutate, openEventsByCategory, showToast]
+    [categories, mutate, openEventsByCategory, showToast, switchSide]
   );
 
   // Misma tabla de comandos para tap-to-talk y manos libres. Devuelve si se
@@ -282,5 +332,6 @@ export function useEventLog({
     recordVoiceTranscript,
     togglePause,
     editEventDuration,
+    switchSide,
   };
 }
