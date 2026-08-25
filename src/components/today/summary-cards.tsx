@@ -19,26 +19,48 @@ function findLatest(
   );
 }
 
+function summarizeGroup(
+  events: EventWithRelations[],
+  group: "toma" | "sueno" | "panal"
+) {
+  const groupEvents = events.filter(
+    (event) => event.event_categories && groupFor(event.event_categories.icono) === group
+  );
+  const count = groupEvents.length;
+  const totalSeconds = groupEvents.reduce(
+    (sum, event) => sum + (event.duration_seconds ?? 0),
+    0
+  );
+  return { count, totalSeconds };
+}
+
 function Card({
   title,
   event,
   now,
   emptyLabel,
   runningLabel,
+  summary,
 }: {
   title: string;
   event?: EventWithRelations;
   now: Date | null;
   emptyLabel: string;
   runningLabel?: (event: EventWithRelations, now: Date) => string;
+  summary?: string;
 }) {
   const isRunning = event && event.ended_at === null && runningLabel;
 
   return (
     <div className="flex flex-col gap-1 rounded-2xl bg-zinc-900 px-4 py-3">
-      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-        {title}
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+          {title}
+        </p>
+        {summary && (
+          <p className="whitespace-nowrap text-xs font-medium text-zinc-500">{summary}</p>
+        )}
+      </div>
       {!event ? (
         <p className="text-sm text-zinc-400">{emptyLabel}</p>
       ) : isRunning ? (
@@ -71,6 +93,10 @@ export function SummaryCards({ events, now }: SummaryCardsProps) {
   const lastSleep = findLatest(events, "sueno");
   const lastDiaper = findLatest(events, "panal");
 
+  const feedSummary = summarizeGroup(events, "toma");
+  const sleepSummary = summarizeGroup(events, "sueno");
+  const diaperSummary = summarizeGroup(events, "panal");
+
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       <Card
@@ -78,6 +104,11 @@ export function SummaryCards({ events, now }: SummaryCardsProps) {
         event={lastFeed}
         now={now}
         emptyLabel="Sin registros hoy"
+        summary={
+          feedSummary.count > 0
+            ? `${feedSummary.count}x · ${formatDuration(feedSummary.totalSeconds)} hoy`
+            : undefined
+        }
       />
       <Card
         title="Sueño"
@@ -90,12 +121,18 @@ export function SummaryCards({ events, now }: SummaryCardsProps) {
           );
           return `Durmiendo ahora · ${formatDuration(elapsed)}`;
         }}
+        summary={
+          sleepSummary.count > 0
+            ? `${sleepSummary.count}x · ${formatDuration(sleepSummary.totalSeconds)} hoy`
+            : undefined
+        }
       />
       <Card
         title="Último pañal"
         event={lastDiaper}
         now={now}
         emptyLabel="Sin registros hoy"
+        summary={diaperSummary.count > 0 ? `${diaperSummary.count}x hoy` : undefined}
       />
     </div>
   );
