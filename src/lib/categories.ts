@@ -8,6 +8,7 @@ const ICONS: Record<string, string> = {
   diaper: "💩",
   "diaper-mix": "🧷",
   moon: "🌙",
+  medicine: "💊",
 };
 
 const GROUPS: Record<string, CategoryGroup> = {
@@ -46,4 +47,10 @@ const OPPOSITE_BREAST: Record<string, string> = {
 // null para cualquier categoría que no sea un seno (sueño, biberón, etc.).
 export function oppositeBreastIcono(icono: string): string | null {
   return OPPOSITE_BREAST[icono] ?? null;
+}
+
+// La categoría "Medicina" pide el nombre antes de registrar, a diferencia
+// del resto de las instantáneas que se guardan directo al tocarlas.
+export function isMedicine(icono: string): boolean {
+  return icono === "medicine";
 }

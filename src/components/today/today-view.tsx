@@ -26,6 +26,7 @@ export function TodayView({
   caregiverNamesById,
 }: TodayViewProps) {
   const {
+    events,
     todaysEvents,
     openEventsByCategory,
     hasOpenEvents,
@@ -37,7 +38,9 @@ export function TodayView({
     recordVoiceTranscript,
     togglePause,
     editSessionDuration,
+    deleteEvent,
     switchSide,
+    recordMedicine,
   } = useEventLog({
     babyId,
     caregiverId,
@@ -54,7 +57,7 @@ export function TodayView({
     <div className="flex flex-col gap-6">
       <Toast message={toastMessage} />
 
-      <SummaryCards events={todaysEvents} now={now} />
+      <SummaryCards events={events} todaysEvents={todaysEvents} now={now} />
 
       <CryingGuide />
 
@@ -67,6 +70,7 @@ export function TodayView({
         onPress={recordButtonPress}
         onTogglePause={togglePause}
         onSwitchSide={switchSide}
+        onRecordMedicine={recordMedicine}
       />
 
       <VoiceControls recordVoiceTranscript={recordVoiceTranscript} />
@@ -75,7 +79,11 @@ export function TodayView({
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">
           Hoy
         </h2>
-        <EventTimeline events={todaysEvents} onEditDuration={editSessionDuration} />
+        <EventTimeline
+          events={todaysEvents}
+          onEditDuration={editSessionDuration}
+          onDelete={deleteEvent}
+        />
       </div>
     </div>
   );

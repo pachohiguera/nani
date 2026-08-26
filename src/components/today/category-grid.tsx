@@ -1,7 +1,8 @@
 "use client";
 
-import { oppositeBreastIcono } from "@/lib/categories";
+import { isMedicine, oppositeBreastIcono } from "@/lib/categories";
 import { CategoryButton } from "@/components/today/category-button";
+import { MedicineButton } from "@/components/today/medicine-button";
 import type { EventCategory } from "@/types/database";
 import type { EventWithRelations } from "@/types/today";
 
@@ -14,6 +15,7 @@ interface CategoryGridProps {
   onPress: (category: EventCategory) => void;
   onTogglePause: (category: EventCategory) => void;
   onSwitchSide: (fromCategory: EventCategory, toCategory: EventCategory) => void;
+  onRecordMedicine: (category: EventCategory, nombre: string) => void;
 }
 
 export function CategoryGrid({
@@ -25,10 +27,23 @@ export function CategoryGrid({
   onPress,
   onTogglePause,
   onSwitchSide,
+  onRecordMedicine,
 }: CategoryGridProps) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       {categories.map((category) => {
+        if (isMedicine(category.icono)) {
+          return (
+            <MedicineButton
+              key={category.id}
+              category={category}
+              flash={flashCategoryId === category.id}
+              disabled={pendingCategoryId === category.id}
+              onSave={(nombre) => onRecordMedicine(category, nombre)}
+            />
+          );
+        }
+
         const openEvent = openEventsByCategory.get(category.id);
         const oppositeIcono = oppositeBreastIcono(category.icono);
         const siblingCategory = oppositeIcono

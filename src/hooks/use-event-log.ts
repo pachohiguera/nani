@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  deleteSession,
   getRecentEvents,
   pauseEvent,
   recordCategoryEvent,
@@ -95,6 +96,10 @@ export function useEventLog({
     [categories, caregiverNamesById]
   );
 
+  const removeEvents = useCallback((ids: string[]) => {
+    setEvents((prev) => prev.filter((e) => !ids.includes(e.id)));
+  }, []);
+
   // Nota de aprendizaje: con Supabase, un canal de Realtime (postgres_changes)
   // mantenía sincronizados a los dos caregivers en vivo. Neon no tiene un
   // equivalente integrado, así que en su lugar hacemos polling: cada 20s (y
@@ -187,6 +192,34 @@ export function useEventLog({
       showToast(`Cambiado a ${toCategory.nombre}`);
     },
     [caregiverId, openEventsByCategory, showToast, upsertEvent]
+  );
+
+  // Medicina pide el nombre antes de guardar (ver MedicineButton), así que
+  // no pasa por recordButtonPress/mutate normal — el nombre queda en notas.
+  const recordMedicine = useCallback(
+    async (category: EventCategory, nombre: string) => {
+      setPendingCategoryId(category.id);
+      const { data, error } = await recordCategoryEvent({
+        babyId,
+        caregiverId,
+        category,
+        origen: "boton",
+        notas: nombre,
+      });
+      setPendingCategoryId(null);
+
+      if (error || !data) {
+        showToast("No se pudo registrar, intenta de nuevo");
+        return;
+      }
+
+      upsertEvent(data);
+      setFlashCategoryId(category.id);
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+      flashTimer.current = setTimeout(() => setFlashCategoryId(null), 400);
+      showToast(`Medicina registrada: ${nombre}`);
+    },
+    [babyId, caregiverId, showToast, upsertEvent]
   );
 
   const recordButtonPress = useCallback(
@@ -322,6 +355,21 @@ export function useEventLog({
     [showToast, upsertEvent]
   );
 
+  // Borrar un registro por error, desde el historial (⚙️). Aplica a
+  // instantáneos (pañales, medicina) y a senos/sueño ya cerrados.
+  const deleteEvent = useCallback(
+    async (sessionKey: string) => {
+      const { data, error } = await deleteSession(sessionKey);
+      if (error || !data) {
+        showToast("No se pudo eliminar, intenta de nuevo");
+        return;
+      }
+      removeEvents(data.deletedIds);
+      showToast("Evento eliminado");
+    },
+    [showToast, removeEvents]
+  );
+
   return {
     events,
     todaysEvents,
@@ -335,6 +383,8 @@ export function useEventLog({
     recordVoiceTranscript,
     togglePause,
     editSessionDuration,
+    deleteEvent,
     switchSide,
+    recordMedicine,
   };
 }

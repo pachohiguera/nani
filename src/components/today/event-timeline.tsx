@@ -15,9 +15,10 @@ import type { EventWithRelations } from "@/types/today";
 interface EventTimelineProps {
   events: EventWithRelations[];
   onEditDuration?: (sessionKey: string, minutes: number, startedAt?: string) => void;
+  onDelete?: (sessionKey: string) => void;
 }
 
-export function EventTimeline({ events, onEditDuration }: EventTimelineProps) {
+export function EventTimeline({ events, onEditDuration, onDelete }: EventTimelineProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftMinutes, setDraftMinutes] = useState("");
   const [draftTime, setDraftTime] = useState("");
@@ -50,9 +51,14 @@ export function EventTimeline({ events, onEditDuration }: EventTimelineProps) {
       const startedAt = draftTime ? withTimeOfDay(originalStartedAtIso, draftTime) : undefined;
       onEditDuration?.(key, minutes, startedAt);
     }
-    setEditingId(null);
-    setDraftMinutes("");
-    setDraftTime("");
+    cancelEditing();
+  }
+
+  function handleDelete(key: string) {
+    if (window.confirm("¿Eliminar este registro? No se puede deshacer.")) {
+      onDelete?.(key);
+    }
+    cancelEditing();
   }
 
   return (
@@ -60,82 +66,80 @@ export function EventTimeline({ events, onEditDuration }: EventTimelineProps) {
       {sessions.map((session) => {
         const lastEvent = session.events[session.events.length - 1];
         const category = lastEvent.event_categories;
-        // Editable incluso con cambio de lado: el número que se ingresa es
-        // el total de la sesión, y solo se ajusta el último tramo para que
-        // la suma dé eso (ver updateSessionDuration).
-        const isEditable =
-          Boolean(onEditDuration) &&
-          lastEvent.ended_at !== null &&
-          category !== null &&
-          category.tipo === "duracion" &&
-          supportsPause(category.icono);
-        const isEditing = editingId === session.key;
         const running = sessionIsRunning(session);
         const totalSeconds = sessionDurationSeconds(session);
+
+        // Editable (minutos + hora) solo para senos/sueño ya cerrados —
+        // aunque haya cambio de lado, el número que se ingresa es el total
+        // de la sesión (ver updateSessionDuration). Los instantáneos
+        // (pañales, medicina) no tienen minutos que editar, pero sí se
+        // pueden borrar por si fue un toque equivocado.
+        const isDurationEditable =
+          !running && category !== null && category.tipo === "duracion" && supportsPause(category.icono);
+        const isDeletable = category !== null && (category.tipo === "instantaneo" || (!running && category.tipo === "duracion"));
+        const canManage = Boolean(onEditDuration || onDelete) && isDeletable;
+        const isEditing = editingId === session.key;
 
         return (
           <li
             key={session.key}
             className="flex items-center gap-3 rounded-2xl bg-zinc-900 px-4 py-3"
           >
-            <button
-              type="button"
-              onClick={
-                isEditable
-                  ? () =>
-                      isEditing
-                        ? cancelEditing()
-                        : startEditing(session.key, totalSeconds ?? 0, sessionStartedAt(session))
-                  : undefined
-              }
-              disabled={!isEditable}
-              aria-label={isEditable ? "Editar duración" : undefined}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg disabled:cursor-default"
-              style={{
-                backgroundColor: category?.color ?? "#3f3f46",
-              }}
+            <div
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg"
+              style={{ backgroundColor: category?.color ?? "#3f3f46" }}
             >
               {category ? iconFor(category.icono) : "•"}
-            </button>
+            </div>
 
             <div className="flex-1">
               <p className="text-sm font-semibold text-white">
                 {sessionLabel(session) || "Evento"}
+                {lastEvent.notas ? `: ${lastEvent.notas}` : ""}
               </p>
               {isEditing ? (
                 <div className="mt-1 flex flex-col gap-1.5">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      min={0}
-                      autoFocus
-                      value={draftMinutes}
-                      onChange={(e) => setDraftMinutes(e.target.value)}
-                      className="h-8 w-16 rounded-lg border border-zinc-700 bg-zinc-950 px-2 text-sm text-white"
-                    />
-                    <span className="text-xs text-zinc-500">min</span>
-                    <span className="text-xs text-zinc-600">empezó a las</span>
-                    <input
-                      type="time"
-                      value={draftTime}
-                      onChange={(e) => setDraftTime(e.target.value)}
-                      className="h-8 rounded-lg border border-zinc-700 bg-zinc-950 px-2 text-sm text-white"
-                    />
-                  </div>
+                  {isDurationEditable && (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        autoFocus
+                        value={draftMinutes}
+                        onChange={(e) => setDraftMinutes(e.target.value)}
+                        className="h-8 w-16 rounded-lg border border-zinc-700 bg-zinc-950 px-2 text-sm text-white"
+                      />
+                      <span className="text-xs text-zinc-500">min</span>
+                      <span className="text-xs text-zinc-600">empezó a las</span>
+                      <input
+                        type="time"
+                        value={draftTime}
+                        onChange={(e) => setDraftTime(e.target.value)}
+                        className="h-8 rounded-lg border border-zinc-700 bg-zinc-950 px-2 text-sm text-white"
+                      />
+                    </div>
+                  )}
                   <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => saveEditing(session.key, sessionStartedAt(session))}
-                      className="rounded-lg bg-indigo-500 px-2 py-1 text-xs font-semibold text-white active:bg-indigo-600"
-                    >
-                      Guardar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={cancelEditing}
-                      className="text-xs text-zinc-500"
-                    >
+                    {isDurationEditable && (
+                      <button
+                        type="button"
+                        onClick={() => saveEditing(session.key, sessionStartedAt(session))}
+                        className="rounded-lg bg-indigo-500 px-2 py-1 text-xs font-semibold text-white active:bg-indigo-600"
+                      >
+                        Guardar
+                      </button>
+                    )}
+                    {onDelete && (
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(session.key)}
+                        className="rounded-lg bg-red-950 px-2 py-1 text-xs font-semibold text-red-300 active:bg-red-900"
+                      >
+                        Eliminar
+                      </button>
+                    )}
+                    <button type="button" onClick={cancelEditing} className="text-xs text-zinc-500">
                       Cancelar
                     </button>
                   </div>
@@ -153,12 +157,20 @@ export function EventTimeline({ events, onEditDuration }: EventTimelineProps) {
               )}
             </div>
 
-            <span
-              className="text-xs text-zinc-600"
-              title={lastEvent.origen === "voz" ? "Por voz" : "Por botón"}
-            >
-              {lastEvent.origen === "voz" ? "🎙️" : "👆"}
-            </span>
+            {canManage && !isEditing && (
+              <button
+                type="button"
+                onClick={() =>
+                  isDurationEditable
+                    ? startEditing(session.key, totalSeconds ?? 0, sessionStartedAt(session))
+                    : setEditingId(session.key)
+                }
+                aria-label="Editar"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-500 active:bg-zinc-800"
+              >
+                ⚙️
+              </button>
+            )}
           </li>
         );
       })}

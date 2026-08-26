@@ -12,6 +12,7 @@ interface RecordParams {
   category: Pick<EventCategory, "id" | "tipo">;
   origen: EventOrigin;
   openEventId?: string | null;
+  notas?: string;
 }
 
 interface RecordResult {
@@ -42,6 +43,7 @@ export async function recordCategoryEvent({
   category,
   origen,
   openEventId,
+  notas,
 }: RecordParams): Promise<RecordResult> {
   try {
     if (category.tipo === "duracion" && openEventId) {
@@ -61,6 +63,7 @@ export async function recordCategoryEvent({
         category_id: category.id,
         caregiver_id: caregiverId,
         origen,
+        notas,
       })
       .returning();
     return { data: row ?? null, error: row ? null : { message: "No se pudo insertar" } };
@@ -163,6 +166,27 @@ export async function updateSessionDuration(
     updated.push(updatedLast);
 
     return { data: updated, error: null };
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Error desconocido" } };
+  }
+}
+
+interface DeleteResult {
+  data: { deletedIds: string[] } | null;
+  error: { message: string } | null;
+}
+
+// Borra un evento suelto, o toda la sesión (ambos tramos) si hubo cambio de
+// lado — por si se registró algo por error. Mismo sessionKey que el resto:
+// session_id compartido, o el propio id si es un evento suelto.
+export async function deleteSession(sessionKey: string): Promise<DeleteResult> {
+  try {
+    const rows = await db
+      .delete(events)
+      .where(or(eq(events.session_id, sessionKey), eq(events.id, sessionKey)))
+      .returning({ id: events.id });
+    if (rows.length === 0) return { data: null, error: { message: "Evento no encontrado" } };
+    return { data: { deletedIds: rows.map((r) => r.id) }, error: null };
   } catch (e) {
     return { data: null, error: { message: e instanceof Error ? e.message : "Error desconocido" } };
   }

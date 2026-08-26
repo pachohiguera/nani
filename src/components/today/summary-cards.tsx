@@ -12,7 +12,12 @@ import {
 import type { EventWithRelations } from "@/types/today";
 
 interface SummaryCardsProps {
+  // Ventana amplia (últimas 48h) para encontrar la "última toma/sueño/pañal"
+  // — esto no debe vaciarse a medianoche, sirve de referencia aunque haya
+  // pasado a "ayer".
   events: EventWithRelations[];
+  // Solo los de hoy, para los conteos "Nx · duración hoy".
+  todaysEvents: EventWithRelations[];
   now: Date | null;
 }
 
@@ -87,16 +92,17 @@ function Card({
   );
 }
 
-export function SummaryCards({ events, now }: SummaryCardsProps) {
+export function SummaryCards({ events, todaysEvents, now }: SummaryCardsProps) {
   const sessions = groupSessions(events);
+  const todaySessions = groupSessions(todaysEvents);
 
   const lastFeed = findLatestSession(sessions, "toma");
   const lastSleep = findLatestSession(sessions, "sueno");
   const lastDiaper = findLatestSession(sessions, "panal");
 
-  const feedSummary = summarizeSessionGroup(sessions, "toma");
-  const sleepSummary = summarizeSessionGroup(sessions, "sueno");
-  const diaperSummary = summarizeSessionGroup(sessions, "panal");
+  const feedSummary = summarizeSessionGroup(todaySessions, "toma");
+  const sleepSummary = summarizeSessionGroup(todaySessions, "sueno");
+  const diaperSummary = summarizeSessionGroup(todaySessions, "panal");
 
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -104,7 +110,7 @@ export function SummaryCards({ events, now }: SummaryCardsProps) {
         title="Última toma"
         session={lastFeed}
         now={now}
-        emptyLabel="Sin registros hoy"
+        emptyLabel="Sin registros"
         summary={
           feedSummary.count > 0
             ? `${feedSummary.count}x · ${formatDuration(feedSummary.totalSeconds)} hoy`
@@ -115,7 +121,7 @@ export function SummaryCards({ events, now }: SummaryCardsProps) {
         title="Sueño"
         session={lastSleep}
         now={now}
-        emptyLabel="Sin registros hoy"
+        emptyLabel="Sin registros"
         runningLabel={(event, now) => {
           const elapsed = Math.floor(
             (now.getTime() - new Date(event.started_at).getTime()) / 1000
@@ -132,7 +138,7 @@ export function SummaryCards({ events, now }: SummaryCardsProps) {
         title="Último pañal"
         session={lastDiaper}
         now={now}
-        emptyLabel="Sin registros hoy"
+        emptyLabel="Sin registros"
         summary={diaperSummary.count > 0 ? `${diaperSummary.count}x hoy` : undefined}
       />
     </div>
