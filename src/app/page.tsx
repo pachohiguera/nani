@@ -6,6 +6,7 @@ import { babies, caregivers, event_categories, events } from "@/lib/db/schema";
 import { hoursAgoIso } from "@/lib/time";
 import { LogoutButton } from "@/components/logout-button";
 import { TodayView } from "@/components/today/today-view";
+import { BabySetupForm } from "@/components/onboarding/baby-setup-form";
 
 export const dynamic = "force-dynamic";
 
@@ -19,15 +20,11 @@ export default async function Home() {
   if (!caregiver) {
     return (
       <div className="flex flex-1 flex-col bg-zinc-950 text-white">
-        <header className="flex items-center justify-between px-6 py-5">
-          <h1 className="text-2xl font-bold">Nani</h1>
+        <header className="flex items-center justify-end px-6 py-5">
           <LogoutButton />
         </header>
-        <main className="flex flex-1 items-center justify-center px-6 text-center text-zinc-500">
-          <p>
-            Tu usuario todavía no está vinculado a ningún bebé. Revisa el
-            paso 3 del seed (tabla <code>caregivers</code>).
-          </p>
+        <main className="flex flex-1 items-center justify-center px-6">
+          <BabySetupForm />
         </main>
       </div>
     );
