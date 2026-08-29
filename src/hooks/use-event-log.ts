@@ -8,6 +8,7 @@ import {
   recordCategoryEvent,
   resumeEvent,
   switchBreastSide,
+  updateEventStartedAt,
   updateSessionDuration,
 } from "@/lib/events/actions";
 import { oppositeBreastIcono } from "@/lib/categories";
@@ -366,6 +367,21 @@ export function useEventLog({
     [showToast, upsertEvent]
   );
 
+  // Edición de la hora en eventos instantáneos (pañales, medicina, vómito)
+  // — no tienen minutos, pero sí se pueden haber registrado tarde.
+  const editEventTime = useCallback(
+    async (eventId: string, startedAt: string) => {
+      const { data, error } = await updateEventStartedAt(eventId, startedAt);
+      if (error || !data) {
+        showToast("No se pudo actualizar, intenta de nuevo");
+        return;
+      }
+      upsertEvent(data);
+      showToast("Evento actualizado");
+    },
+    [showToast, upsertEvent]
+  );
+
   // Borrar un registro por error, desde el historial (⚙️). Aplica a
   // instantáneos (pañales, medicina) y a senos/sueño ya cerrados.
   const deleteEvent = useCallback(
@@ -394,6 +410,7 @@ export function useEventLog({
     recordVoiceTranscript,
     togglePause,
     editSessionDuration,
+    editEventTime,
     deleteEvent,
     switchSide,
     recordMedicine,

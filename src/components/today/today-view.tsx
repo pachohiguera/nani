@@ -38,6 +38,7 @@ export function TodayView({
     recordVoiceTranscript,
     togglePause,
     editSessionDuration,
+    editEventTime,
     deleteEvent,
     switchSide,
     recordMedicine,
@@ -84,6 +85,7 @@ export function TodayView({
         <EventTimeline
           events={todaysEvents}
           onEditDuration={editSessionDuration}
+          onEditTime={editEventTime}
           onDelete={deleteEvent}
         />
       </div>

@@ -171,6 +171,21 @@ export async function updateSessionDuration(
   }
 }
 
+// Edición manual de eventos instantáneos (pañales, medicina, vómito): no
+// tienen minutos que editar, pero sí la hora — por si se registró tarde.
+export async function updateEventStartedAt(eventId: string, startedAt: string): Promise<RecordResult> {
+  try {
+    const [row] = await db
+      .update(events)
+      .set({ started_at: startedAt })
+      .where(eq(events.id, eventId))
+      .returning();
+    return { data: row ?? null, error: row ? null : { message: "Evento no encontrado" } };
+  } catch (e) {
+    return { data: null, error: { message: e instanceof Error ? e.message : "Error desconocido" } };
+  }
+}
+
 interface DeleteResult {
   data: { deletedIds: string[] } | null;
   error: { message: string } | null;

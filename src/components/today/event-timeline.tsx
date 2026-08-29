@@ -15,10 +15,11 @@ import type { EventWithRelations } from "@/types/today";
 interface EventTimelineProps {
   events: EventWithRelations[];
   onEditDuration?: (sessionKey: string, minutes: number, startedAt?: string) => void;
+  onEditTime?: (eventId: string, startedAt: string) => void;
   onDelete?: (sessionKey: string) => void;
 }
 
-export function EventTimeline({ events, onEditDuration, onDelete }: EventTimelineProps) {
+export function EventTimeline({ events, onEditDuration, onEditTime, onDelete }: EventTimelineProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftMinutes, setDraftMinutes] = useState("");
   const [draftTime, setDraftTime] = useState("");
@@ -54,6 +55,13 @@ export function EventTimeline({ events, onEditDuration, onDelete }: EventTimelin
     cancelEditing();
   }
 
+  function saveEditingTime(key: string, originalStartedAtIso: string) {
+    if (draftTime) {
+      onEditTime?.(key, withTimeOfDay(originalStartedAtIso, draftTime));
+    }
+    cancelEditing();
+  }
+
   function handleDelete(key: string) {
     if (window.confirm("¿Eliminar este registro? No se puede deshacer.")) {
       onDelete?.(key);
@@ -76,8 +84,9 @@ export function EventTimeline({ events, onEditDuration, onDelete }: EventTimelin
         // pueden borrar por si fue un toque equivocado.
         const isDurationEditable =
           !running && category !== null && category.tipo === "duracion" && supportsPause(category.icono);
+        const isTimeEditable = category !== null && category.tipo === "instantaneo";
         const isDeletable = category !== null && (category.tipo === "instantaneo" || (!running && category.tipo === "duracion"));
-        const canManage = Boolean(onEditDuration || onDelete) && isDeletable;
+        const canManage = Boolean(onEditDuration || onEditTime || onDelete) && isDeletable;
         const isEditing = editingId === session.key;
 
         return (
@@ -120,11 +129,32 @@ export function EventTimeline({ events, onEditDuration, onDelete }: EventTimelin
                       />
                     </div>
                   )}
+                  {isTimeEditable && !isDurationEditable && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-zinc-600">hora</span>
+                      <input
+                        type="time"
+                        autoFocus
+                        value={draftTime}
+                        onChange={(e) => setDraftTime(e.target.value)}
+                        className="h-8 rounded-lg border border-zinc-700 bg-zinc-950 px-2 text-sm text-white"
+                      />
+                    </div>
+                  )}
                   <div className="flex items-center gap-3">
                     {isDurationEditable && (
                       <button
                         type="button"
                         onClick={() => saveEditing(session.key, sessionStartedAt(session))}
+                        className="rounded-lg bg-indigo-500 px-2 py-1 text-xs font-semibold text-white active:bg-indigo-600"
+                      >
+                        Guardar
+                      </button>
+                    )}
+                    {isTimeEditable && !isDurationEditable && (
+                      <button
+                        type="button"
+                        onClick={() => saveEditingTime(session.key, sessionStartedAt(session))}
                         className="rounded-lg bg-indigo-500 px-2 py-1 text-xs font-semibold text-white active:bg-indigo-600"
                       >
                         Guardar
@@ -161,7 +191,7 @@ export function EventTimeline({ events, onEditDuration, onDelete }: EventTimelin
               <button
                 type="button"
                 onClick={() =>
-                  isDurationEditable
+                  isDurationEditable || isTimeEditable
                     ? startEditing(session.key, totalSeconds ?? 0, sessionStartedAt(session))
                     : setEditingId(session.key)
                 }
