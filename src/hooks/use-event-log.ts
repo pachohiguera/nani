@@ -194,17 +194,18 @@ export function useEventLog({
     [caregiverId, openEventsByCategory, showToast, upsertEvent]
   );
 
-  // Medicina pide el nombre antes de guardar (ver MedicineButton), así que
-  // no pasa por recordButtonPress/mutate normal — el nombre queda en notas.
-  const recordMedicine = useCallback(
-    async (category: EventCategory, nombre: string) => {
+  // Medicina y Vómito piden un dato extra antes de guardar (ver
+  // MedicineButton/VomitButton), así que no pasan por recordButtonPress/
+  // mutate normal — ese dato queda en notas.
+  const recordWithNote = useCallback(
+    async (category: EventCategory, nota: string) => {
       setPendingCategoryId(category.id);
       const { data, error } = await recordCategoryEvent({
         babyId,
         caregiverId,
         category,
         origen: "boton",
-        notas: nombre,
+        notas: nota,
       });
       setPendingCategoryId(null);
 
@@ -217,9 +218,19 @@ export function useEventLog({
       setFlashCategoryId(category.id);
       if (flashTimer.current) clearTimeout(flashTimer.current);
       flashTimer.current = setTimeout(() => setFlashCategoryId(null), 400);
-      showToast(`Medicina registrada: ${nombre}`);
+      showToast(`${category.nombre} registrado: ${nota}`);
     },
     [babyId, caregiverId, showToast, upsertEvent]
+  );
+
+  const recordMedicine = useCallback(
+    (category: EventCategory, nombre: string) => recordWithNote(category, nombre),
+    [recordWithNote]
+  );
+
+  const recordVomit = useCallback(
+    (category: EventCategory, severity: string) => recordWithNote(category, severity),
+    [recordWithNote]
   );
 
   const recordButtonPress = useCallback(
@@ -386,5 +397,6 @@ export function useEventLog({
     deleteEvent,
     switchSide,
     recordMedicine,
+    recordVomit,
   };
 }

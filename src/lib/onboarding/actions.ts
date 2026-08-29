@@ -20,6 +20,7 @@ const DEFAULT_CATEGORIES = [
   { nombre: "Pañal - pipí y popó", tipo: "instantaneo" as const, color: "#78716c", icono: "diaper-mix", orden: 6 },
   { nombre: "Sueño", tipo: "duracion" as const, color: "#6366f1", icono: "moon", orden: 7 },
   { nombre: "Medicina", tipo: "instantaneo" as const, color: "#14b8a6", icono: "medicine", orden: 8 },
+  { nombre: "Vómito", tipo: "instantaneo" as const, color: "#ef4444", icono: "vomit", orden: 9 },
 ];
 
 // Onboarding self-servicio: la persona logueada que todavía no tiene un

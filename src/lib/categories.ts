@@ -9,6 +9,7 @@ const ICONS: Record<string, string> = {
   "diaper-mix": "🧷",
   moon: "🌙",
   medicine: "💊",
+  vomit: "🤮",
 };
 
 const GROUPS: Record<string, CategoryGroup> = {
@@ -53,4 +54,12 @@ export function oppositeBreastIcono(icono: string): string | null {
 // del resto de las instantáneas que se guardan directo al tocarlas.
 export function isMedicine(icono: string): boolean {
   return icono === "medicine";
+}
+
+// "Vómito" pide la cantidad (Poco/Medio/Mucho) antes de registrar.
+export const VOMIT_SEVERITIES = ["Poco", "Medio", "Mucho"] as const;
+export type VomitSeverity = (typeof VOMIT_SEVERITIES)[number];
+
+export function isVomit(icono: string): boolean {
+  return icono === "vomit";
 }

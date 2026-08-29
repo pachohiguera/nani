@@ -6,6 +6,7 @@ import {
   aggregateDiapers,
   aggregateFeeding,
   aggregateSleep,
+  aggregateVomit,
   buildCurrentDayKeys,
   type TrendRange,
 } from "@/lib/trends";
@@ -13,6 +14,7 @@ import { RangeSelector } from "@/components/trends/range-selector";
 import { SleepChart } from "@/components/trends/sleep-chart";
 import { FeedingChart } from "@/components/trends/feeding-chart";
 import { DiaperChart } from "@/components/trends/diaper-chart";
+import { VomitChart } from "@/components/trends/vomit-chart";
 import type { BabyEvent, EventCategory } from "@/types/database";
 
 interface TrendsViewProps {
@@ -47,6 +49,10 @@ export function TrendsView({
     () => aggregateDiapers(enriched, days),
     [enriched, days]
   );
+  const vomitData = useMemo(
+    () => aggregateVomit(enriched, days),
+    [enriched, days]
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -54,6 +60,7 @@ export function TrendsView({
       <SleepChart data={sleepData} range={range} />
       <FeedingChart data={feedingData} range={range} />
       <DiaperChart data={diaperData} range={range} />
+      <VomitChart data={vomitData} range={range} />
     </div>
   );
 }

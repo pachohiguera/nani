@@ -58,6 +58,13 @@ export interface DiaperPoint {
   popo: number;
 }
 
+export interface VomitPoint {
+  day: string;
+  poco: number;
+  medio: number;
+  mucho: number;
+}
+
 function eventDayKey(event: EventWithRelations): string {
   return dayKey(new Date(event.started_at));
 }
@@ -152,5 +159,33 @@ export function aggregateDiapers(
   return days.map((day) => {
     const entry = byDay.get(day);
     return { day, pipi: entry?.pipi ?? 0, popo: entry?.popo ?? 0 };
+  });
+}
+
+export function aggregateVomit(
+  events: EventWithRelations[],
+  days: string[]
+): VomitPoint[] {
+  const byDay = new Map<string, { poco: number; medio: number; mucho: number }>();
+
+  for (const event of events) {
+    if (event.event_categories?.icono !== "vomit") continue;
+
+    const key = eventDayKey(event);
+    const entry = byDay.get(key) ?? { poco: 0, medio: 0, mucho: 0 };
+    if (event.notas === "Poco") entry.poco += 1;
+    else if (event.notas === "Medio") entry.medio += 1;
+    else if (event.notas === "Mucho") entry.mucho += 1;
+    byDay.set(key, entry);
+  }
+
+  return days.map((day) => {
+    const entry = byDay.get(day);
+    return {
+      day,
+      poco: entry?.poco ?? 0,
+      medio: entry?.medio ?? 0,
+      mucho: entry?.mucho ?? 0,
+    };
   });
 }

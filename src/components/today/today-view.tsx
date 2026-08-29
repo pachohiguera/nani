@@ -41,6 +41,7 @@ export function TodayView({
     deleteEvent,
     switchSide,
     recordMedicine,
+    recordVomit,
   } = useEventLog({
     babyId,
     caregiverId,
@@ -71,6 +72,7 @@ export function TodayView({
         onTogglePause={togglePause}
         onSwitchSide={switchSide}
         onRecordMedicine={recordMedicine}
+        onRecordVomit={recordVomit}
       />
 
       <VoiceControls recordVoiceTranscript={recordVoiceTranscript} />

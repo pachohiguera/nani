@@ -1,8 +1,9 @@
 "use client";
 
-import { isMedicine, oppositeBreastIcono } from "@/lib/categories";
+import { isMedicine, isVomit, oppositeBreastIcono } from "@/lib/categories";
 import { CategoryButton } from "@/components/today/category-button";
 import { MedicineButton } from "@/components/today/medicine-button";
+import { VomitButton } from "@/components/today/vomit-button";
 import type { EventCategory } from "@/types/database";
 import type { EventWithRelations } from "@/types/today";
 
@@ -16,6 +17,7 @@ interface CategoryGridProps {
   onTogglePause: (category: EventCategory) => void;
   onSwitchSide: (fromCategory: EventCategory, toCategory: EventCategory) => void;
   onRecordMedicine: (category: EventCategory, nombre: string) => void;
+  onRecordVomit: (category: EventCategory, severity: string) => void;
 }
 
 export function CategoryGrid({
@@ -28,6 +30,7 @@ export function CategoryGrid({
   onTogglePause,
   onSwitchSide,
   onRecordMedicine,
+  onRecordVomit,
 }: CategoryGridProps) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -40,6 +43,18 @@ export function CategoryGrid({
               flash={flashCategoryId === category.id}
               disabled={pendingCategoryId === category.id}
               onSave={(nombre) => onRecordMedicine(category, nombre)}
+            />
+          );
+        }
+
+        if (isVomit(category.icono)) {
+          return (
+            <VomitButton
+              key={category.id}
+              category={category}
+              flash={flashCategoryId === category.id}
+              disabled={pendingCategoryId === category.id}
+              onSave={(severity) => onRecordVomit(category, severity)}
             />
           );
         }
