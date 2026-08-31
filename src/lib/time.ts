@@ -76,3 +76,19 @@ export function startOfLocalDay(date: Date = new Date()): Date {
   start.setHours(0, 0, 0, 0);
   return start;
 }
+
+// Para separadores de día en el historial: "Hoy", "Ayer", o la fecha corta
+// para lo que quede más atrás (la ventana cargada llega hasta 48h).
+export function dayLabel(iso: string, now: Date = new Date()): string {
+  const startOfEventDay = startOfLocalDay(new Date(iso)).getTime();
+  const diffDays = Math.round((startOfLocalDay(now).getTime() - startOfEventDay) / 86400000);
+  if (diffDays === 0) return "Hoy";
+  if (diffDays === 1) return "Ayer";
+  return new Date(iso).toLocaleDateString("es", { day: "numeric", month: "short" });
+}
+
+// Clave estable para agrupar por día local (no usar el ISO crudo: es UTC).
+export function dayKey(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}

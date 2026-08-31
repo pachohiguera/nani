@@ -77,6 +77,19 @@ export function useEventLog({
       );
   }, [events]);
 
+  // Historial visible: hoy y ayer (a diferencia de todaysEvents, que solo
+  // sirve para los conteos que se resetean a medianoche).
+  const historyEvents = useMemo(() => {
+    const startOfYesterday = startOfLocalDay();
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+    return events
+      .filter((event) => new Date(event.started_at) >= startOfYesterday)
+      .sort(
+        (a, b) =>
+          new Date(b.started_at).getTime() - new Date(a.started_at).getTime()
+      );
+  }, [events]);
+
   const showToast = useCallback((message: string) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     setToastMessage(message);
@@ -400,6 +413,7 @@ export function useEventLog({
   return {
     events,
     todaysEvents,
+    historyEvents,
     openEventsByCategory,
     hasOpenEvents,
     now,

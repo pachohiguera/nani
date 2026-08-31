@@ -28,6 +28,7 @@ export function TodayView({
   const {
     events,
     todaysEvents,
+    historyEvents,
     openEventsByCategory,
     hasOpenEvents,
     now,
@@ -80,10 +81,10 @@ export function TodayView({
 
       <div>
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">
-          Hoy
+          Historial
         </h2>
         <EventTimeline
-          events={todaysEvents}
+          events={historyEvents}
           onEditDuration={editSessionDuration}
           onEditTime={editEventTime}
           onDelete={deleteEvent}
