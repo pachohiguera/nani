@@ -1,4 +1,9 @@
 import { groupFor } from "@/lib/categories";
+import {
+  groupSessions,
+  sessionEndedAt,
+  sessionStartedAt,
+} from "@/lib/events/sessions";
 import type { EventWithRelations } from "@/types/today";
 
 export type TrendRange = "dia" | "semana" | "mes";
@@ -67,6 +72,77 @@ export interface VomitPoint {
 
 function eventDayKey(event: EventWithRelations): string {
   return dayKey(new Date(event.started_at));
+}
+
+export interface TimeRange {
+  startHour: number;
+  endHour: number;
+}
+
+export interface DayTimeRanges {
+  day: string;
+  ranges: TimeRange[];
+}
+
+function hourOfDay(iso: string): number {
+  const d = new Date(iso);
+  return d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
+}
+
+export function formatHourLabel(hour: number): string {
+  const normalized = ((hour % 24) + 24) % 24;
+  const h = Math.floor(normalized);
+  const m = Math.round((normalized - h) * 60);
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+// A qué hora empezó y terminó cada sesión (cambios de lado enlazados
+// cuentan como una sola), agrupado por el día en que empezó. Si termina
+// después de medianoche, endHour sigue creciendo más allá de 24 — así la
+// barra queda continua en vez de cortarse.
+function aggregateTimeRanges(
+  events: EventWithRelations[],
+  days: string[],
+  matches: (icono: string) => boolean
+): DayTimeRanges[] {
+  const filtered = events.filter((event) => {
+    const icono = event.event_categories?.icono;
+    return icono != null && matches(icono);
+  });
+  const sessions = groupSessions(filtered);
+  const byDay = new Map<string, TimeRange[]>();
+
+  for (const session of sessions) {
+    const endedAt = sessionEndedAt(session);
+    if (endedAt === null) continue;
+    const startedAt = sessionStartedAt(session);
+    const key = dayKey(new Date(startedAt));
+    const startHour = hourOfDay(startedAt);
+    let endHour = hourOfDay(endedAt);
+    if (endHour < startHour) endHour += 24;
+    const list = byDay.get(key) ?? [];
+    list.push({ startHour, endHour });
+    byDay.set(key, list);
+  }
+
+  return days.map((day) => ({
+    day,
+    ranges: (byDay.get(day) ?? []).sort((a, b) => a.startHour - b.startHour),
+  }));
+}
+
+export function aggregateSleepTimes(
+  events: EventWithRelations[],
+  days: string[]
+): DayTimeRanges[] {
+  return aggregateTimeRanges(events, days, (icono) => icono === "moon");
+}
+
+export function aggregateFeedingTimes(
+  events: EventWithRelations[],
+  days: string[]
+): DayTimeRanges[] {
+  return aggregateTimeRanges(events, days, (icono) => groupFor(icono) === "toma");
 }
 
 export function aggregateSleep(
