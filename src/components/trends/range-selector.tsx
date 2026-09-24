@@ -5,7 +5,7 @@ import type { TrendRange } from "@/lib/trends";
 const OPTIONS: { value: TrendRange; label: string }[] = [
   { value: "dia", label: "Día" },
   { value: "semana", label: "Semana" },
-  { value: "mes", label: "Mes" },
+  { value: "mes", label: "20 días" },
 ];
 
 interface RangeSelectorProps {
