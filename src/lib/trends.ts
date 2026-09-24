@@ -11,7 +11,7 @@ export type TrendRange = "dia" | "semana" | "mes";
 const RANGE_DAYS: Record<TrendRange, number> = {
   dia: 1,
   semana: 7,
-  mes: 20,
+  mes: 30,
 };
 
 function dayKey(date: Date): string {

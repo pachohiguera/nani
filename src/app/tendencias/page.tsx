@@ -32,7 +32,7 @@ export default async function TendenciasPage() {
       orderBy: event_categories.orden,
     }),
     db.query.events.findMany({
-      where: and(eq(events.baby_id, caregiver.baby_id), gte(events.started_at, hoursAgoIso(20 * 24))),
+      where: and(eq(events.baby_id, caregiver.baby_id), gte(events.started_at, hoursAgoIso(30 * 24))),
       orderBy: desc(events.started_at),
     }),
   ]);
