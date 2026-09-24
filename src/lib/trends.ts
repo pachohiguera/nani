@@ -74,75 +74,87 @@ function eventDayKey(event: EventWithRelations): string {
   return dayKey(new Date(event.started_at));
 }
 
-export interface TimeRange {
-  startHour: number;
-  endHour: number;
-}
-
-export interface DayTimeRanges {
-  day: string;
-  ranges: TimeRange[];
-}
-
-function hourOfDay(iso: string): number {
-  const d = new Date(iso);
-  return d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
+export interface HourlyPoint {
+  hour: number;
+  minutes: number;
 }
 
 export function formatHourLabel(hour: number): string {
   const normalized = ((hour % 24) + 24) % 24;
-  const h = Math.floor(normalized);
-  const m = Math.round((normalized - h) * 60);
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  return `${String(Math.floor(normalized)).padStart(2, "0")}:00`;
 }
 
-// A qué hora empezó y terminó cada sesión (cambios de lado enlazados
-// cuentan como una sola), agrupado por el día en que empezó. Si termina
-// después de medianoche, endHour sigue creciendo más allá de 24 — así la
-// barra queda continua en vez de cortarse.
-function aggregateTimeRanges(
+function dayKeyToLocalDate(key: string): Date {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+// Reparte una sesión entre las horas del día que ocupó (una siesta de
+// 21:30 a 23:10 suma 30 min a la hora 21 y 70 min a la hora 22) — así una
+// sesión que cruza medianoche se reparte sola, sin lógica especial, y un
+// solo dato atípico no puede desproporcionar el resto del gráfico como
+// pasaba con las barras por rango horario.
+function distributeMinutesByHour(startMs: number, endMs: number, buckets: number[]) {
+  let cursor = startMs;
+  while (cursor < endMs) {
+    const cursorDate = new Date(cursor);
+    const hour = cursorDate.getHours();
+    const nextHour = new Date(cursorDate);
+    nextHour.setMinutes(0, 0, 0);
+    nextHour.setHours(nextHour.getHours() + 1);
+    const segmentEnd = Math.min(endMs, nextHour.getTime());
+    buckets[hour] += (segmentEnd - cursor) / 60000;
+    cursor = segmentEnd;
+  }
+}
+
+// Promedio de minutos por hora del día, a lo largo de todo el rango
+// seleccionado (no día por día) — responde directamente "más o menos a
+// qué hora" sin depender de cuántos días se estén mirando.
+function aggregateHourlyPattern(
   events: EventWithRelations[],
   days: string[],
   matches: (icono: string) => boolean
-): DayTimeRanges[] {
+): HourlyPoint[] {
+  const buckets = new Array(24).fill(0);
+  if (days.length === 0) return buckets.map((minutes, hour) => ({ hour, minutes }));
+
+  const rangeStart = dayKeyToLocalDate(days[0]).getTime();
+  const rangeEnd = dayKeyToLocalDate(days[days.length - 1]).getTime() + 24 * 60 * 60 * 1000;
+
   const filtered = events.filter((event) => {
     const icono = event.event_categories?.icono;
     return icono != null && matches(icono);
   });
   const sessions = groupSessions(filtered);
-  const byDay = new Map<string, TimeRange[]>();
 
   for (const session of sessions) {
     const endedAt = sessionEndedAt(session);
     if (endedAt === null) continue;
     const startedAt = sessionStartedAt(session);
-    const key = dayKey(new Date(startedAt));
-    const startHour = hourOfDay(startedAt);
-    let endHour = hourOfDay(endedAt);
-    if (endHour < startHour) endHour += 24;
-    const list = byDay.get(key) ?? [];
-    list.push({ startHour, endHour });
-    byDay.set(key, list);
+    const startMs = new Date(startedAt).getTime();
+    if (startMs < rangeStart || startMs >= rangeEnd) continue;
+    distributeMinutesByHour(startMs, new Date(endedAt).getTime(), buckets);
   }
 
-  return days.map((day) => ({
-    day,
-    ranges: (byDay.get(day) ?? []).sort((a, b) => a.startHour - b.startHour),
+  return buckets.map((minutes, hour) => ({
+    hour,
+    minutes: Math.round((minutes / days.length) * 10) / 10,
   }));
 }
 
-export function aggregateSleepTimes(
+export function aggregateSleepHourly(
   events: EventWithRelations[],
   days: string[]
-): DayTimeRanges[] {
-  return aggregateTimeRanges(events, days, (icono) => icono === "moon");
+): HourlyPoint[] {
+  return aggregateHourlyPattern(events, days, (icono) => icono === "moon");
 }
 
-export function aggregateFeedingTimes(
+export function aggregateFeedingHourly(
   events: EventWithRelations[],
   days: string[]
-): DayTimeRanges[] {
-  return aggregateTimeRanges(events, days, (icono) => groupFor(icono) === "toma");
+): HourlyPoint[] {
+  return aggregateHourlyPattern(events, days, (icono) => groupFor(icono) === "toma");
 }
 
 export function aggregateSleep(
