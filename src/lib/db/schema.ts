@@ -56,6 +56,23 @@ export const caregivers = pgTable(
   ]
 );
 
+// Código corto para que un segundo caregiver se una al mismo bebé sin que
+// nadie tenga que compartir su contraseña ni que yo lo vincule por SQL.
+export const baby_invites = pgTable(
+  "baby_invites",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    baby_id: uuid("baby_id")
+      .notNull()
+      .references(() => babies.id, { onDelete: "cascade" }),
+    code: text("code").notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [unique().on(table.code), index("idx_baby_invites_baby_id").on(table.baby_id)]
+);
+
 export const event_categories = pgTable(
   "event_categories",
   {

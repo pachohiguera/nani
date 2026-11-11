@@ -57,6 +57,9 @@ export default async function Home() {
           <h1 className="text-2xl font-bold">Hola, {caregiver.nombre_display}</h1>
         </div>
         <div className="flex items-center gap-3">
+          <Link href="/invitar" className="text-sm font-medium text-zinc-400">
+            Invitar
+          </Link>
           <Link href="/tendencias" className="text-sm font-medium text-zinc-400">
             Tendencias
           </Link>

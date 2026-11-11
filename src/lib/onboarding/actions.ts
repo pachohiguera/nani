@@ -24,8 +24,9 @@ const DEFAULT_CATEGORIES = [
 ];
 
 // Onboarding self-servicio: la persona logueada que todavía no tiene un
-// bebé vinculado arma el suyo. Queda como único caregiver hasta que alguien
-// más se vincule (eso hoy se hace por SQL, igual que con Papá/Mamá).
+// bebé vinculado arma el suyo y queda como su primer caregiver. El segundo
+// caregiver se suma con un código de invitación (ver lib/invites/actions.ts),
+// no por SQL.
 export async function createBabyProfile(
   nombre: string,
   fechaNacimiento: string
